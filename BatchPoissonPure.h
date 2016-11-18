@@ -219,7 +219,10 @@ public:
 
     double elbo_term(vector<gamma_latent*> vars);
 
+
     void init_b_latent();
+
+    void init_a_latent();
 };
 
 
@@ -234,32 +237,6 @@ public:
     gamma_latent epsilon;
     gamma_latent eta;
     gamma_latent tau;
-
-
-    Arrayf a_beta;
-    Arrayf b_beta;
-    Arrayf e_beta;
-    Arrayf elog_beta;
-
-    Arrayf a_theta;
-    Arrayf b_theta;
-    Arrayf e_theta;
-    Arrayf elog_theta;
-
-    Arrayf a_epsilon;
-    Arrayf b_epsilon;
-    Arrayf e_epsilon;
-    Arrayf elog_epsilon;
-
-    Arrayf a_eta;
-    Arrayf b_eta;
-    Arrayf e_eta;
-    Arrayf elog_eta;
-
-    Arrayf  a_tau;
-    Arrayf  b_tau;
-    Arrayf  e_tau;
-    Arrayf  elog_tau;
 
     Arrayf  phi;
     Arrayf  xi_M;

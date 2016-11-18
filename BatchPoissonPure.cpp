@@ -555,30 +555,10 @@ BatchPoissonNewArray::BatchPoissonNewArray(size_t n_ratings, size_t n_wd_entries
         _n_words(n_words), _n_ratings(n_ratings),
         _n_wd_entries(n_wd_entries), _n_max_neighbors(n_max_neighbors),
         a(a), b(b), c(c), d(d), e(e), f(f), g(g), h(h), k(k), l(l),
-        a_beta(arrman->makeArray(n_words,k_feat,a)),
-        b_beta(arrman->makeArray(k_feat,1,b)),
-        e_beta(arrman->makeArray(n_words,k_feat)),
-        elog_beta(arrman->makeArray(n_words,k_feat)),
         beta(arrman,n_words,k_feat,a,b),
-        a_theta(arrman->makeArray(n_items,k_feat,c)),
-        b_theta(arrman->makeArray(k_feat,1,d)),
-        e_theta(arrman->makeArray(n_items,k_feat)),
-        elog_theta(arrman->makeArray(n_items,k_feat)),
         theta(arrman,n_items,k_feat,c,d),
-        a_epsilon(arrman->makeArray(n_items,k_feat,g)),
-        b_epsilon(arrman->makeArray(k_feat,1,h)),
-        e_epsilon(arrman->makeArray(n_items,k_feat)),
-        elog_epsilon(arrman->makeArray(n_items,k_feat)),
         epsilon(arrman,n_items,k_feat,g,h),
-        a_eta(arrman->makeArray(n_users,k_feat,e)),
-        b_eta(arrman->makeArray(k_feat,1,f)),
-        e_eta(arrman->makeArray(n_users,k_feat)),
-        elog_eta(arrman->makeArray(n_users,k_feat)),
         eta(arrman,n_users,k_feat,e,f),
-        a_tau(arrman->makeArray(n_users,n_max_neighbors,k)),
-        b_tau(arrman->makeArray(n_max_neighbors,1,l)),
-        e_tau(arrman->makeArray(n_users,n_max_neighbors)),
-        elog_tau(arrman->makeArray(n_users,n_max_neighbors)),
         tau(arrman,n_users,n_max_neighbors,k,l),
         phi(arrman->makeArray(n_wd_entries,k_feat)),
         xi_M(arrman->makeArray(n_ratings,k_feat)),
@@ -598,11 +578,11 @@ void BatchPoissonNewArray::init() {
 }
 
 void BatchPoissonNewArray::update_latent() {
-    a_beta=a;
-    a_theta=c;
-    a_epsilon=g;
-    a_eta=e;
-    a_tau=k;
+    beta.init_a_latent();
+    theta.init_a_latent();
+    epsilon.init_a_latent();
+    eta.init_a_latent();
+    tau.init_a_latent();
 
     for(size_t ud=0; ud< _n_ratings;ud++){
         auto user_u = std::get<0>(r_entries[ud]);
@@ -612,13 +592,13 @@ void BatchPoissonNewArray::update_latent() {
         for(size_t k=0; k< _k_feat;k++){
             auto rudk_M=r_ud*xi_M(ud,k);
             auto rudk_N=r_ud*xi_N(ud,k);
-            a_epsilon(item_i,k)+=rudk_N;
-            a_theta(item_i,k)+=rudk_M;
-            a_eta(user_u,k)+=rudk_M+rudk_N;
+            epsilon.a_latent(item_i,k)+=rudk_N;
+            theta.a_latent(item_i,k)+=rudk_M;
+            eta.a_latent(user_u,k)+=rudk_M+rudk_N;
         }
 
         for(auto neighb : user_items_neighboors[ud]) {
-            a_tau(user_u,neighb.first)+=xi_S(ud,neighb.first);
+            tau.a_latent(user_u,neighb.first)+=xi_S(ud,neighb.first);
         }
     }
     double temp_w;
@@ -629,28 +609,28 @@ void BatchPoissonNewArray::update_latent() {
         auto wdv= std::get<2>(w_entries[dv]);
         for(size_t k=0; k< _k_feat;k++) {
             temp_w=wdv*phi(dv,k);
-            a_beta(word_w,k)+=temp_w;
-            a_theta(item_i,k)+=temp_w;
+            beta.a_latent(word_w,k)+=temp_w;
+            theta.a_latent(item_i,k)+=temp_w;
 
         }
     }
 
 
-    beta.b_latent=b;
-    b_theta=d;
-    b_epsilon=h;
-    b_eta=f;
+    beta.init_b_latent();
+    theta.init_b_latent();
+    epsilon.init_b_latent();
+    eta.init_b_latent();
 
     for(size_t k=0; k< _k_feat;k++) {
         float sum_d_theta,sum_d_epsilon,sum_u_eta,sum_v_beta;
-        sum_d_theta = e_theta.col_sum(k);
-        sum_d_epsilon = e_epsilon.col_sum(k);
-        sum_u_eta = e_eta.col_sum(k);
-        sum_v_beta = e_beta.col_sum(k);
-        b_beta(k)+=sum_d_theta;
-        b_epsilon(k)+=sum_u_eta;
-        b_theta(k)+=sum_u_eta+sum_v_beta;
-        b_eta(k)+=sum_d_theta+sum_d_epsilon;
+        sum_d_theta = theta.e_expected.col_sum(k);
+        sum_d_epsilon = epsilon.e_expected.col_sum(k);
+        sum_u_eta = eta.e_expected.col_sum(k);
+        sum_v_beta = beta.e_expected.col_sum(k);
+        beta.e_expected(k)+=sum_d_theta;
+        epsilon.e_expected(k)+=sum_u_eta;
+        theta.e_expected(k)+=sum_u_eta+sum_v_beta;
+        eta.e_expected(k)+=sum_d_theta+sum_d_epsilon;
     }
 }
 
@@ -662,16 +642,16 @@ void BatchPoissonNewArray::update_aux_latent() {
         auto item_i = std::get<1>(r_entries[ud]);
         for (auto k = 0; k < _k_feat; k++) {
             // self.xi_M = np.exp(self.Elogeta[:, np.newaxis, :] + self.Elogtheta[:, :, np.newaxis])
-            xi_M(ud, k) = exp(elog_eta(user_u, k) + elog_theta(item_i, k));
+            xi_M(ud, k) = exp(eta.elog_expected(user_u, k) + theta.elog_expected(item_i, k));
 
             // self.xi_N = np.exp(self.Elogeta[:, np.newaxis, :] + self.Elogepsilon[:, :, np.newaxis])
-            xi_N(ud, k) = exp(elog_eta(user_u, k) + elog_epsilon(item_i, k));
+            xi_N(ud, k) = exp(eta.elog_expected(user_u, k) + epsilon.elog_expected(item_i, k));
             sum_k += xi_M(ud,k) + xi_N(ud,k);
         }
         xi_S.row(ud) = 0;
         for (auto neighb : user_items_neighboors[ud]) {
             xi_S(ud,neighb.first) = std::get<2>(r_entries[neighb.second])
-                                     * exp(elog_tau(user_u,neighb.first));
+                                     * exp(tau.elog_expected(user_u,neighb.first));
             sum_k += xi_S(ud,neighb.first);
         }
         {
@@ -691,7 +671,7 @@ void BatchPoissonNewArray::update_aux_latent() {
         auto item_i = std::get<1>(w_entries[dv]);
         for(auto k=0; k< _k_feat;k++){
             // self.phi = np.exp(self.Elogbeta[:, np.newaxis, :] + self.Elogtheta[:, :, np.newaxis])
-            phi(dv,k)=exp(elog_beta(word_w,k)+elog_theta(item_i,k));
+            phi(dv,k)=exp(beta.elog_expected(word_w,k)+theta.elog_expected(item_i,k));
             sum_k += phi(dv,k);
         }
         {
@@ -703,11 +683,11 @@ void BatchPoissonNewArray::update_aux_latent() {
 }
 
 void BatchPoissonNewArray::update_expected() {
-    compute_gama_expected(a_beta, b_beta, e_beta, elog_beta);
-    compute_gama_expected(a_theta, b_theta,e_theta,elog_theta);
-    compute_gama_expected(a_epsilon, b_epsilon,e_epsilon,elog_epsilon);
-    compute_gama_expected(a_eta, b_eta,e_eta,elog_eta);
-    compute_gama_expected(a_tau, b_tau,e_tau,elog_tau);
+    beta.update_expected();
+    theta.update_expected();
+    eta.update_expected();
+    epsilon.update_expected();
+    tau.update_expected();
 }
 
 double BatchPoissonNewArray::compute_elbo() {
@@ -722,14 +702,14 @@ double BatchPoissonNewArray::compute_elbo() {
         auto r_ud = std::get<2>(r_entries[ud]);
         log_sum=0;
         for (auto k = 0; k < _k_feat; k++) {
-            log_sum += xi_M(ud,k)*(elog_eta(user_u,k)+elog_theta(item_i,k)-log(xi_M(ud,k)))
-                         + xi_N(ud,k)*(elog_eta(user_u,k)+elog_epsilon(item_i,k)-log(xi_N(ud,k)));
+            log_sum += xi_M(ud,k)*(eta.elog_expected(user_u,k)+theta.elog_expected(item_i,k)-log(xi_M(ud,k)))
+                         + xi_N(ud,k)*(eta.elog_expected(user_u,k)+epsilon.elog_expected(item_i,k)-log(xi_N(ud,k)));
         }
         for (auto neighb : user_items_neighboors[ud]) {
             // neighb is user_i in N(user_u), neighb.first is its index in the trust tau variable
             auto r_id = std::get<2>(r_entries[neighb.second]);
 
-            log_sum += xi_S(ud,neighb.first)*(elog_tau(user_u,neighb.first)+log(r_id )
+            log_sum += xi_S(ud,neighb.first)*(tau.elog_expected(user_u,neighb.first)+log(r_id )
                                                        -log(xi_S(ud,neighb.first)));
         }
         total_sum+=r_ud*log_sum-LogFactorial(r_ud);
@@ -745,7 +725,7 @@ double BatchPoissonNewArray::compute_elbo() {
         auto w_dv = std::get<2>(w_entries[dv]);
         log_sum=0;
         for(auto k=0; k< _k_feat;k++){
-            log_sum += phi(dv,k)*(elog_beta(word_w,k)+elog_theta(item_i,k)- log(phi(dv,k)));
+            log_sum += phi(dv,k)*(beta.elog_expected(word_w,k)+theta.elog_expected(item_i,k)- log(phi(dv,k)));
         }
         total_sum+=w_dv*log_sum-LogFactorial(w_dv);
         /** TODO:
@@ -754,17 +734,11 @@ double BatchPoissonNewArray::compute_elbo() {
 
     }
     // Gamma terms for the latent variables
-    for(auto w=0;w<_n_words;w++){
-        for(auto k=0; k< _k_feat;k++){
-            total_sum+=gamma_term(a,b,a_beta(w,k),b_beta(k),e_beta(w,k),elog_beta(w,k));
-        }
-    }
-    for(auto item=0;item<_n_items;item++){
-        for(auto k=0; k< _k_feat;k++){
-            total_sum+=gamma_term(c,d,a_theta(item,k),b_theta(k),e_theta(item,k),elog_theta(item,k));
-            total_sum+=gamma_term(a,b,a_epsilon(item,k),b_epsilon(k),e_epsilon(item,k),elog_epsilon(item,k));
-        }
-    }
+
+    total_sum+=beta.elbo_term();
+    total_sum+=theta.elbo_term(vector<gamma_latent*>({&epsilon}));
+    total_sum+=eta.elbo_term();
+    total_sum+=tau.elbo_term();
     return total_sum;
 }
 /*       a(a), b(b), c(c), d(d), e(e), f(f), g(g), h(h), k(k), l(l),
@@ -780,7 +754,7 @@ double BatchPoissonNewArray::compute_elbo() {
         b_epsilon(arrman->makeArray(k_feat,1,h)),
         e_epsilon(arrman->makeArray(n_items,k_feat)),
         elog_epsilon(arrman->makeArray(n_items,k_feat)),
-        a_eta(arrman->makeArray(n_users,k_feat,e)),
+        eta.a_latent(arrman->makeArray(n_users,k_feat,e)),
         b_eta(arrman->makeArray(k_feat,1,f)),
         e_eta(arrman->makeArray(n_users,k_feat)),
         elog_eta(arrman->makeArray(n_users,k_feat)),
@@ -868,6 +842,8 @@ double gamma_latent::elbo_term(vector<gamma_latent*> vars) {
     return total_sum;
 }
 
+
+
 gamma_latent::gamma_latent( ArrayManager<float>* arrman, size_t nrows, size_t ncols, float a, float b):
 a(a), b(b), a_latent(arrman->makeArray(nrows,ncols,a)),b_latent(arrman->makeArray(ncols,b)),
 e_expected(arrman->makeArray(nrows,ncols)),elog_expected(arrman->makeArray(nrows,ncols))
@@ -878,6 +854,12 @@ e_expected(arrman->makeArray(nrows,ncols)),elog_expected(arrman->makeArray(nrows
 void gamma_latent::init_b_latent() {
     b_latent=b;
 }
+
+void gamma_latent::init_a_latent() {
+    a_latent=a;
+
+}
+
 
 
 

@@ -10,14 +10,15 @@
 #include <list>
 #include <iostream>
 #include <utility>
-
-#include <iostream>
 #include <string>
-#include <vector>
-#include <list>
-#include <utility>
+#include <boost/random.hpp>
+#include <boost/random/gamma_distribution.hpp>
+#include <boost/unordered_map.hpp>
+#include <unordered_map>
+
 
 using namespace std;
+
 
 enum class vars {
     a_beta=0, a_theta ,a_epsilon,a_eta,a_tau,
@@ -128,7 +129,9 @@ public:
         return sum;
     }
     void row_normalize(Array<T>& a,Array<T>& b){
-        if(nrow==a.nrow && a.nrow){
+        // normalize this, a and b (ncol and nrow should be the same) using the row sum of this, a and b as
+        // normalizing factor
+        if(nrow==a.nrow && a.nrow==b.nrow && ncol==a.ncol && a.ncol == b.ncol){
             for (int i = 0; i < nrow; ++i) {
                 T sum = 0;
 
@@ -157,7 +160,39 @@ public:
             row_multiply(i,1.0/sum);
         }
     }
+    void init_gamma_row_normalized(double shape=1.1){
+        init_gamma_row_normalized(shape,1);
+    }
+    void init_gamma_row_normalized(double shape, double rate){
+        // shape= alpha
+        // rate = beta
+        // the gamma normalized with rate=1 is actually a dirichlet with concentration parameter = shape
+        boost::mt19937 rng=boost::mt19937(time(0));
+        boost::gamma_distribution<> gd( shape );
+        boost::variate_generator<boost::mt19937&,boost::gamma_distribution<> > var_gamma( rng, gd );
+        for (int i = 0; i < nrow; ++i) {
+            T sum = 0;
+
+            for (int j = 0; j < ncol; ++j) {
+                (*this)(i,j)=var_gamma()/rate;
+                sum+=(*this)(i,j);
+            }
+            //row_multiply(i,1.0/sum);
+        }
+    }
+    friend std::ostream &operator<<(std::ostream &os, const Array<T> &arr1) {
+        os << "(nrow=" << arr1.nrow << ", ncol=" << arr1.ncol <<" ), [";
+        for(size_t i=0;i<arr1.ncol;i++){
+            os<<arr1.data[i];
+            if((i+1)<arr1.ncol)
+                os<<",";
+        }
+        os<<"]"<<endl;
+        return os;
+    }
+
 };
+
 
 template<class T> class ArrayManager{
 private:
@@ -172,18 +207,38 @@ public:
         data = new T[total_capacity];
         next_pointer=data;
     }
-    Array<T> makeArray(size_t ncol, size_t nrow){
+    Array<T> makeArray(size_t nrow,size_t ncol){
         if((used_capacity+(nrow*ncol))<total_capacity) {
-            Array<T> ret = Array<T>(next_pointer, ncol, nrow);
+            Array<T> ret = Array<T>(next_pointer, nrow, ncol);
             used_capacity += ncol * nrow;
             next_pointer += (ncol * nrow);
             return (ret);
         }else
             std::invalid_argument( " not enough pre-allocated space for next array" );
     }
-    Array<T> makeArray(size_t ncol, size_t nrow,T value){
+    Array<T> makeArray(size_t nrow,size_t ncol,T value){
         if((used_capacity+(nrow*ncol))<total_capacity) {
-            Array<T> ret = Array<T>(next_pointer, ncol, nrow,value);
+            Array<T> ret = Array<T>(next_pointer, nrow, ncol,value);
+            used_capacity += ncol * nrow;
+            next_pointer += (ncol * nrow);
+            return (ret);
+        }else
+            std::invalid_argument( " not enough pre-allocated space for next array" );
+    }
+    Array<T> makeArray(size_t ncol){
+        size_t nrow=1;
+        if((used_capacity+(nrow*ncol))<total_capacity) {
+            Array<T> ret = Array<T>(next_pointer, nrow,ncol);
+            used_capacity += ncol * nrow;
+            next_pointer += (ncol * nrow);
+            return (ret);
+        }else
+            std::invalid_argument( " not enough pre-allocated space for next array" );
+    }
+    Array<T> makeArray(size_t ncol, T value){
+        size_t nrow=1;
+        if((used_capacity+(nrow*ncol))<total_capacity) {
+            Array<T> ret = Array<T>(next_pointer, nrow,ncol,value);
             used_capacity += ncol * nrow;
             next_pointer += (ncol * nrow);
             return (ret);
@@ -197,7 +252,8 @@ public:
 
 };
 
-typedef Array<float> Arrayf;
+typedef Array<double> Arrayf;
+typedef unordered_map< pair<size_t, size_t >,size_t,boost::hash< std::pair<size_t, size_t> >  > pairmap;
 
 class gamma_latent {
 public:
@@ -205,13 +261,15 @@ public:
     Arrayf b_latent;
     Arrayf e_expected;
     Arrayf elog_expected;
-    float a;
-    float b;
+    double a;
+    double b;
+    size_t nvars;
+    size_t kdim;
 
     gamma_latent(const Arrayf &a_latent, const Arrayf &b_latent, const Arrayf &e_expected, const Arrayf &elog_expected,
-                 float a, float b);
+                 double a, double b);
 
-    gamma_latent( ArrayManager<float>* arrman, size_t nrows, size_t ncols, float a, float b);
+    gamma_latent( ArrayManager<double>* arrman, size_t nrows, size_t ncols, double a, double b);
 
     void update_expected();
 
@@ -219,18 +277,31 @@ public:
 
     double elbo_term(vector<gamma_latent*> vars);
 
+    double elbo_term_prod_linear_expectations(vector<gamma_latent*> vars);
+
 
     void init_b_latent();
 
     void init_a_latent();
+
+    friend std::ostream &operator<<(std::ostream &os, const gamma_latent &var){
+        os << "{a = " << var.a << ", b=" << var.b << "nvars=" << var.nvars << "kdim= " << var.kdim<<endl;
+        os << ",a_latent = [" << var.a_latent<<"]";
+        os << ",b_latent = [" << var.b_latent<<"]";
+        os << ",exp = [" << var.e_expected<<"]";
+        os << ",logexp = [" << var.elog_expected<<"]";
+        os << endl;
+        return os;
+    }
 };
 
 
 class BatchPoissonNewArray {
-
+private:
+    double tau_elbo_expected_linear_term();
 public:
 
-    ArrayManager<float>* arrman;
+    ArrayManager<double>* arrman;
 
     gamma_latent beta;
     gamma_latent theta;
@@ -247,6 +318,12 @@ public:
     vector<tuple<size_t,size_t,size_t>> r_entries; // tuple<user,item,feedback>
     vector<tuple<size_t,size_t,size_t>> w_entries; // tuple<word,item,word-count-in-item>
     vector< list <  pair<size_t, size_t > > > user_items_neighboors; // list<<pair<user_neighbor_i,index_in_r_entries>>
+    pairmap user_items_map; // map<pair<user_id,item_id>,index_in_r_entries>>
+    vector< vector < size_t > > user_neighboors;
+    vector< pair<size_t,size_t>> user_items_index;
+    // pair<u_i,v_i>, where u_i is the beginning index and v_i the ending index
+    // of items for user i in the rating matrix
+
 
     size_t _n_users;
     size_t _n_items;
@@ -255,38 +332,56 @@ public:
     size_t _n_ratings;
     size_t _n_wd_entries; // number of word-document non-zero counts
     size_t _n_max_neighbors;
-    float a=0.1; float b=0.1; float c=0.1; float d=0.1; float e=0.1; float f=0.1; float g=0.1;
-    float h=0.1; float k=0.1; float l=0.1;
+    double a=0.1; double b=0.1; double c=0.1; double d=0.1; double e=0.1; double f=0.1; double g=0.1;
+    double h=0.1; double k=0.1; double l=0.1;
 
 
 
     BatchPoissonNewArray(size_t n_ratings,size_t n_wd_entries,size_t n_users, size_t n_items, size_t k_feat, size_t n_words,size_t n_max_neighbors,
-                 float a=0.1, float b=0.1, float c=0.1, float d=0.1, float e=0.1, float f=0.1, float g=0.1,
-                 float h=0.1, float k=0.1, float l=0.1);
+                 double a=0.1, double b=0.1, double c=0.1, double d=0.1, double e=0.1, double f=0.1, double g=0.1,
+                 double h=0.1, double k=0.1, double l=0.1);
 
 
 
-    void train(vector<tuple<size_t, size_t, size_t>> r_entries,
-               vector<tuple<size_t, size_t, size_t>> w_entries,
-               vector<list<pair<size_t,size_t>>> user_items_neighboors,
-    size_t n_iter, double tol);
-    void init();
+    void train(size_t n_iter, double tol);
+    void init_train(vector<tuple<size_t, size_t, size_t>> r_entries,
+                    vector<tuple<size_t, size_t, size_t>> w_entries,vector< vector < size_t > > user_neighboors);
 
     void update_latent();
 
     void update_aux_latent();
 
-    void update_expected();
+    void init_aux_latent();
 
     double compute_elbo();
 
+    vector<vector<double>> estimate();
 
-
-
-    friend std::ostream &operator<<(std::ostream &os, const BatchPoissonNewArray &poisson);
+    vector<vector<size_t>> recommend(size_t m);
 
     virtual ~BatchPoissonNewArray(){
         arrman->~ArrayManager();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, BatchPoissonNewArray &var){
+
+        for(auto v : var.estimate())
+        {
+            std::copy (v.begin(), v.end(), std::ostream_iterator<double>(os, "\t"));
+            os << endl;
+        }
+
+        return os;
+    }
+    friend std::ostream &operator<<(std::ostream &os, BatchPoissonNewArray &var,bool estimate){
+
+        for(auto v : var.estimate())
+        {
+            std::copy (v.begin(), v.end(), std::ostream_iterator<double>(os, "\t"));
+            os << endl;
+        }
+
+        return os;
     }
 
 
@@ -296,6 +391,7 @@ public:
 // auxiliary numerical functions
 long double digammal(long double x);
 double LogFactorial(size_t n);
+
 double gamma_term(double a, double b, double a_latent, double b_latent, double e_latent, double elog_latent);
 
 

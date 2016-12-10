@@ -150,6 +150,33 @@ BatchPoissonPure.cpp.s:
 	$(MAKE) -f CMakeFiles/poisson_scr_cpp.dir/build.make CMakeFiles/poisson_scr_cpp.dir/BatchPoissonPure.cpp.s
 .PHONY : BatchPoissonPure.cpp.s
 
+datasets.o: datasets.cpp.o
+
+.PHONY : datasets.o
+
+# target to build an object file
+datasets.cpp.o:
+	$(MAKE) -f CMakeFiles/poisson_scr_cpp.dir/build.make CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o
+.PHONY : datasets.cpp.o
+
+datasets.i: datasets.cpp.i
+
+.PHONY : datasets.i
+
+# target to preprocess a source file
+datasets.cpp.i:
+	$(MAKE) -f CMakeFiles/poisson_scr_cpp.dir/build.make CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.i
+.PHONY : datasets.cpp.i
+
+datasets.s: datasets.cpp.s
+
+.PHONY : datasets.s
+
+# target to generate assembly for a file
+datasets.cpp.s:
+	$(MAKE) -f CMakeFiles/poisson_scr_cpp.dir/build.make CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.s
+.PHONY : datasets.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -189,6 +216,9 @@ help:
 	@echo "... BatchPoissonPure.o"
 	@echo "... BatchPoissonPure.i"
 	@echo "... BatchPoissonPure.s"
+	@echo "... datasets.o"
+	@echo "... datasets.i"
+	@echo "... datasets.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

@@ -1,6 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/poisson_scr_cpp.dir/main.cpp.o"
   "CMakeFiles/poisson_scr_cpp.dir/BatchPoissonPure.cpp.o"
+  "CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o"
   "poisson_scr_cpp.pdb"
   "poisson_scr_cpp"
 )

@@ -12,7 +12,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <boost/math/special_functions/digamma.hpp>
-
+#include <chrono>
+#include <boost/math/special_functions/gamma.hpp>
 #ifndef M_PIl
 /** The constant Pi in high precision */
 #define M_PIl 3.1415926535897932384626433832795029L
@@ -26,445 +27,6 @@
 #define M_LN2l 0.6931471805599453094172321214581766L
 #endif
 
-/** The digamma function in long double precision.
-* @param x the real value of the argument
-* @return the value of the digamma (psi) function at that point
-* @author Richard J. Mathar
-* @since 2005-11-24
-*/
-long double digammal(long double x)
-{
-    /* force into the interval 1..3 */
-    if( x < 0.0L )
-        return digammal(1.0L-x)+M_PIl/tanl(M_PIl*(1.0L-x)) ;	/* reflection formula */
-    else if( x < 1.0L )
-        return digammal(1.0L+x)-1.0L/x ;
-    else if ( x == 1.0L)
-        return -M_GAMMAl ;
-    else if ( x == 2.0L)
-        return 1.0L-M_GAMMAl ;
-    else if ( x == 3.0L)
-        return 1.5L-M_GAMMAl ;
-    else if ( x > 3.0L)
-        /* duplication formula */
-        return 0.5L*(digammal(x/2.0L)+digammal((x+1.0L)/2.0L))+M_LN2l ;
-    else
-    {
-        /* Just for your information, the following lines contain
-        * the Maple source code to re-generate the table that is
-        * eventually becoming the Kncoe[] array below
-        * interface(prettyprint=0) :
-        * Digits := 63 :
-        * r := 0 :
-        *
-        * for l from 1 to 60 do
-        * 	d := binomial(-1/2,l) :
-        * 	r := r+d*(-1)^l*(Zeta(2*l+1) -1) ;
-        * 	evalf(r) ;
-        * 	print(%,evalf(1+Psi(1)-r)) ;
-        *o d :
-        *
-        * for N from 1 to 28 do
-        * 	r := 0 :
-        * 	n := N-1 :
-        *
-         *	for l from iquo(n+3,2) to 70 do
-        *		d := 0 :
-         *		for s from 0 to n+1 do
-         *		 d := d+(-1)^s*binomial(n+1,s)*binomial((s-1)/2,l) :
-         *		od :
-         *		if 2*l-n > 1 then
-         *		r := r+d*(-1)^l*(Zeta(2*l-n) -1) :
-         *		fi :
-         *	od :
-         *	print(evalf((-1)^n*2*r)) ;
-         *od :
-         *quit :
-        */
-        static long double Kncoe[] = { .30459198558715155634315638246624251L,
-                                       .72037977439182833573548891941219706L, -.12454959243861367729528855995001087L,
-                                       .27769457331927827002810119567456810e-1L, -.67762371439822456447373550186163070e-2L,
-                                       .17238755142247705209823876688592170e-2L, -.44817699064252933515310345718960928e-3L,
-                                       .11793660000155572716272710617753373e-3L, -.31253894280980134452125172274246963e-4L,
-                                       .83173997012173283398932708991137488e-5L, -.22191427643780045431149221890172210e-5L,
-                                       .59302266729329346291029599913617915e-6L, -.15863051191470655433559920279603632e-6L,
-                                       .42459203983193603241777510648681429e-7L, -.11369129616951114238848106591780146e-7L,
-                                       .304502217295931698401459168423403510e-8L, -.81568455080753152802915013641723686e-9L,
-                                       .21852324749975455125936715817306383e-9L, -.58546491441689515680751900276454407e-10L,
-                                       .15686348450871204869813586459513648e-10L, -.42029496273143231373796179302482033e-11L,
-                                       .11261435719264907097227520956710754e-11L, -.30174353636860279765375177200637590e-12L,
-                                       .80850955256389526647406571868193768e-13L, -.21663779809421233144009565199997351e-13L,
-                                       .58047634271339391495076374966835526e-14L, -.15553767189204733561108869588173845e-14L,
-                                       .41676108598040807753707828039353330e-15L, -.11167065064221317094734023242188463e-15L } ;
-
-        register long double Tn_1 = 1.0L ;	/* T_{n-1}(x), started at n=1 */
-        register long double Tn = x-2.0L ;	/* T_{n}(x) , started at n=1 */
-        register long double resul = Kncoe[0] + Kncoe[1]*Tn ;
-
-        x -= 2.0L ;
-
-        for(int n = 2 ; n < sizeof(Kncoe)/sizeof(long double) ;n++)
-        {
-            const long double Tn1 = 2.0L * x * Tn - Tn_1 ;	/* Chebyshev recursion, Eq. 22.7.4 Abramowitz-Stegun */
-            resul += Kncoe[n]*Tn1 ;
-            Tn_1 = Tn ;
-            Tn = Tn1 ;
-        }
-        return resul ;
-    }
-}
-
-/** The optional interface to CREASO's IDL is added if someone has defined
-* the cpp macro export_IDL_REF, which typically has been done by including the
-* files stdio.h and idl_export.h before this one here.
-*/
-#ifdef export_IDL_REF
-/** CALL_EXTERNAL interface.
-* A template of calling this C function from IDL  is
-* @verbatim
-* dg = CALL_EXTERNAL('digamma.so',X)
-* @endverbatim
-* @param argc the number of arguments. This is supposed to be 1 and not
-*    checked further because that might have negative impact on performance.
-* @param argv the parameter list. The first element is the parameter x
-*    supposed to be of type DOUBLE in IDL
-* @return the return value, again of IDL-type DOUBLE
-* @since 2007-01-16
-* @author Richard J. Mathar
-*/
-double digamma_idl(int argc, void *argv[])
-{
-	long double x = *(double*)argv[0] ;
-	return (double)digammal(x) ;
-}
-#endif /* export_IDL_REF */
-
-#ifdef TEST
-
-/* an alternate implementation for test purposes, using formula 6.3.16 of Abramowitz/Stegun with the
-   first n terms */
-#include <stdio.h>
-
-long double digammalAlt(long double x, int n)
-{
-	/* force into the interval 1..3 */
-	if( x < 0.0L )
-		return digammalAlt(1.0L-x,n)+M_PIl/tanl(M_PIl*(1.0L-x)) ;	/* reflection formula */
-	else if( x < 1.0L )
-		return digammalAlt(1.0L+x,n)-1.0L/x ;
-	else if ( x == 1.0L)
-		return -M_GAMMAl ;
-	else if ( x == 2.0L)
-		return 1.0L-M_GAMMAl ;
-	else if ( x == 3.0L)
-		return 1.5L-M_GAMMAl ;
-	else if ( x > 3.0L)
-		return digammalAlt(x-1.0L,n)+1.0L/(x-1.0L) ;
-	else
-	{
-		x -= 1.0L ;
-		register long double resul = -M_GAMMAl ;
-
-		for( ; n >= 1 ;n--)
-			resul += x/(n*(n+x)) ;
-		return resul ;
-	}
-}
-int main(int argc, char *argv[])
-{
-	for( long double x=0.01 ; x < 5. ; x += 0.02)
-		printf("%.2Lf %.30Lf %.30Lf %.30Lf\n",x, digammal(x), digammalAlt(x,100), digammalAlt(x,200) ) ;
-}
-
-#endif /* TEST */
-
-
-
-
-
-double LogFactorial(size_t n) {
-
-    /*if (n < 0)
-    {
-        std::stringstream os;
-        os << "Invalid input argument (" << n
-           << "); may not be negative";
-        throw std::invalid_argument( os.str() );
-
-    }
-    else*/ if (n > 254)
-    {
-        const double PI = 3.141592653589793;
-        double x = n + 1;
-        return (x - 0.5)*log(x) - x + 0.5*log(2*PI) + 1.0/(12.0*x);
-    }
-    else
-    {
-        double lf[] =
-                {
-                        0.000000000000000,
-                        0.000000000000000,
-                        0.693147180559945,
-                        1.791759469228055,
-                        3.178053830347946,
-                        4.787491742782046,
-                        6.579251212010101,
-                        8.525161361065415,
-                        10.604602902745251,
-                        12.801827480081469,
-                        15.104412573075516,
-                        17.502307845873887,
-                        19.987214495661885,
-                        22.552163853123421,
-                        25.191221182738683,
-                        27.899271383840894,
-                        30.671860106080675,
-                        33.505073450136891,
-                        36.395445208033053,
-                        39.339884187199495,
-                        42.335616460753485,
-                        45.380138898476908,
-                        48.471181351835227,
-                        51.606675567764377,
-                        54.784729398112319,
-                        58.003605222980518,
-                        61.261701761002001,
-                        64.557538627006323,
-                        67.889743137181526,
-                        71.257038967168000,
-                        74.658236348830158,
-                        78.092223553315307,
-                        81.557959456115029,
-                        85.054467017581516,
-                        88.580827542197682,
-                        92.136175603687079,
-                        95.719694542143202,
-                        99.330612454787428,
-                        102.968198614513810,
-                        106.631760260643450,
-                        110.320639714757390,
-                        114.034211781461690,
-                        117.771881399745060,
-                        121.533081515438640,
-                        125.317271149356880,
-                        129.123933639127240,
-                        132.952575035616290,
-                        136.802722637326350,
-                        140.673923648234250,
-                        144.565743946344900,
-                        148.477766951773020,
-                        152.409592584497350,
-                        156.360836303078800,
-                        160.331128216630930,
-                        164.320112263195170,
-                        168.327445448427650,
-                        172.352797139162820,
-                        176.395848406997370,
-                        180.456291417543780,
-                        184.533828861449510,
-                        188.628173423671600,
-                        192.739047287844900,
-                        196.866181672889980,
-                        201.009316399281570,
-                        205.168199482641200,
-                        209.342586752536820,
-                        213.532241494563270,
-                        217.736934113954250,
-                        221.956441819130360,
-                        226.190548323727570,
-                        230.439043565776930,
-                        234.701723442818260,
-                        238.978389561834350,
-                        243.268849002982730,
-                        247.572914096186910,
-                        251.890402209723190,
-                        256.221135550009480,
-                        260.564940971863220,
-                        264.921649798552780,
-                        269.291097651019810,
-                        273.673124285693690,
-                        278.067573440366120,
-                        282.474292687630400,
-                        286.893133295426990,
-                        291.323950094270290,
-                        295.766601350760600,
-                        300.220948647014100,
-                        304.686856765668720,
-                        309.164193580146900,
-                        313.652829949878990,
-                        318.152639620209300,
-                        322.663499126726210,
-                        327.185287703775200,
-                        331.717887196928470,
-                        336.261181979198450,
-                        340.815058870798960,
-                        345.379407062266860,
-                        349.954118040770250,
-                        354.539085519440790,
-                        359.134205369575340,
-                        363.739375555563470,
-                        368.354496072404690,
-                        372.979468885689020,
-                        377.614197873918670,
-                        382.258588773060010,
-                        386.912549123217560,
-                        391.575988217329610,
-                        396.248817051791490,
-                        400.930948278915760,
-                        405.622296161144900,
-                        410.322776526937280,
-                        415.032306728249580,
-                        419.750805599544780,
-                        424.478193418257090,
-                        429.214391866651570,
-                        433.959323995014870,
-                        438.712914186121170,
-                        443.475088120918940,
-                        448.245772745384610,
-                        453.024896238496130,
-                        457.812387981278110,
-                        462.608178526874890,
-                        467.412199571608080,
-                        472.224383926980520,
-                        477.044665492585580,
-                        481.872979229887900,
-                        486.709261136839360,
-                        491.553448223298010,
-                        496.405478487217580,
-                        501.265290891579240,
-                        506.132825342034830,
-                        511.008022665236070,
-                        515.890824587822520,
-                        520.781173716044240,
-                        525.679013515995050,
-                        530.584288294433580,
-                        535.496943180169520,
-                        540.416924105997740,
-                        545.344177791154950,
-                        550.278651724285620,
-                        555.220294146894960,
-                        560.169054037273100,
-                        565.124881094874350,
-                        570.087725725134190,
-                        575.057539024710200,
-                        580.034272767130800,
-                        585.017879388839220,
-                        590.008311975617860,
-                        595.005524249382010,
-                        600.009470555327430,
-                        605.020105849423770,
-                        610.037385686238740,
-                        615.061266207084940,
-                        620.091704128477430,
-                        625.128656730891070,
-                        630.172081847810200,
-                        635.221937855059760,
-                        640.278183660408100,
-                        645.340778693435030,
-                        650.409682895655240,
-                        655.484856710889060,
-                        660.566261075873510,
-                        665.653857411105950,
-                        670.747607611912710,
-                        675.847474039736880,
-                        680.953419513637530,
-                        686.065407301994010,
-                        691.183401114410800,
-                        696.307365093814040,
-                        701.437263808737160,
-                        706.573062245787470,
-                        711.714725802289990,
-                        716.862220279103440,
-                        722.015511873601330,
-                        727.174567172815840,
-                        732.339353146739310,
-                        737.509837141777440,
-                        742.685986874351220,
-                        747.867770424643370,
-                        753.055156230484160,
-                        758.248113081374300,
-                        763.446610112640200,
-                        768.650616799717000,
-                        773.860102952558460,
-                        779.075038710167410,
-                        784.295394535245690,
-                        789.521141208958970,
-                        794.752249825813460,
-                        799.988691788643450,
-                        805.230438803703120,
-                        810.477462875863580,
-                        815.729736303910160,
-                        820.987231675937890,
-                        826.249921864842800,
-                        831.517780023906310,
-                        836.790779582469900,
-                        842.068894241700490,
-                        847.352097970438420,
-                        852.640365001133090,
-                        857.933669825857460,
-                        863.231987192405430,
-                        868.535292100464630,
-                        873.843559797865740,
-                        879.156765776907600,
-                        884.474885770751830,
-                        889.797895749890240,
-                        895.125771918679900,
-                        900.458490711945270,
-                        905.796028791646340,
-                        911.138363043611210,
-                        916.485470574328820,
-                        921.837328707804890,
-                        927.193914982476710,
-                        932.555207148186240,
-                        937.921183163208070,
-                        943.291821191335660,
-                        948.667099599019820,
-                        954.046996952560450,
-                        959.431492015349480,
-                        964.820563745165940,
-                        970.214191291518320,
-                        975.612353993036210,
-                        981.015031374908400,
-                        986.422203146368590,
-                        991.833849198223450,
-                        997.249949600427840,
-                        1002.670484599700300,
-                        1008.095434617181700,
-                        1013.524780246136200,
-                        1018.958502249690200,
-                        1024.396581558613400,
-                        1029.838999269135500,
-                        1035.285736640801600,
-                        1040.736775094367400,
-                        1046.192096209724900,
-                        1051.651681723869200,
-                        1057.115513528895000,
-                        1062.583573670030100,
-                        1068.055844343701400,
-                        1073.532307895632800,
-                        1079.012946818975000,
-                        1084.497743752465600,
-                        1089.986681478622400,
-                        1095.479742921962700,
-                        1100.976911147256000,
-                        1106.478169357800900,
-                        1111.983500893733000,
-                        1117.492889230361000,
-                        1123.006317976526100,
-                        1128.523770872990800,
-                        1134.045231790853000,
-                        1139.570684729984800,
-                        1145.100113817496100,
-                        1150.633503306223700,
-                        1156.170837573242400,
-                };
-        return lf[n];
-    }
-}
-
-
-
-
 
 double gamma_term(double a, double b, double a_latent, double b_latent, double e_latent, double elog_latent) {
     return lgamma(a_latent)-lgamma(a)+a*log(b)+a_latent*(1-log(b_latent))-b*e_latent+(a-a_latent)*elog_latent;
@@ -475,7 +37,7 @@ void compute_gama_expected(Arrayf& a_x, Arrayf& b_x, Arrayf& e_x,
     for ( long i=0; i< a_x.rows();i++ ){
         for( long k=0; k< a_x.cols();k++){
             e_x(i,k) = a_x(i,k)/b_x(k);
-            //elog_x(i,k) = (float)(digammal(a_x(i,k))-log(b_x(k))); // using standalone implementation
+            //elog_x(i,k) = (double)(digammal(a_x(i,k))-log(b_x(k))); // using standalone implementation
             elog_x(i, k) = boost::math::digamma(a_x(i, k)) - log(b_x(k)); // using boost implementation
 
         }
@@ -534,7 +96,7 @@ size_t sizes_var(vars v,size_t n_ratings, size_t n_wd_entries, size_t n_users, s
             result= n_max_neighbors;
             break;
     }
-    std::cout << EnumStrings[(int)v]<<"= "<<result<<'\n';
+    //std::cout << EnumStrings[(int)v]<<"= "<<result<<'\n';
     return result;
 }
 
@@ -548,9 +110,9 @@ size_t total_memory(size_t n_ratings, size_t n_wd_entries, size_t n_users, size_
 }
 
 BatchPoissonNewArray::BatchPoissonNewArray(size_t n_ratings, size_t n_wd_entries, size_t n_users, size_t n_items,
-                                           size_t k_feat, size_t n_words, size_t n_max_neighbors, float a, float b,
-                                           float c, float d, float e, float f, float g, float h, float k, float l) :
-        arrman(new ArrayManager<float>(2*total_memory(n_ratings,n_wd_entries, n_users,  n_items,k_feat, n_words,n_max_neighbors))),
+                                           size_t k_feat, size_t n_words, size_t n_max_neighbors, double a, double b,
+                                           double c, double d, double e, double f, double g, double h, double k, double l) :
+        arrman(new ArrayManager<double>(2*total_memory(n_ratings,n_wd_entries, n_users,  n_items,k_feat, n_words,n_max_neighbors))),
         _n_users(n_users), _n_items(n_items), _k_feat(k_feat),
         _n_words(n_words), _n_ratings(n_ratings),
         _n_wd_entries(n_wd_entries), _n_max_neighbors(n_max_neighbors),
@@ -563,17 +125,146 @@ BatchPoissonNewArray::BatchPoissonNewArray(size_t n_ratings, size_t n_wd_entries
         phi(arrman->makeArray(n_wd_entries,k_feat)),
         xi_M(arrman->makeArray(n_ratings,k_feat)),
         xi_N(arrman->makeArray(n_ratings,k_feat)),
-        xi_S(arrman->makeArray(n_ratings,n_max_neighbors)){
+        xi_S(arrman->makeArray(n_ratings,n_max_neighbors)),
+        user_items_map(pairmap(n_ratings)),
+        user_items_index(vector< pair<size_t,size_t>>(n_users)),
+        user_items_neighboors(vector< list <  pair<size_t, size_t > > >(n_ratings))
+{
 
     size_t memt= total_memory(n_ratings,n_wd_entries, n_users,  n_items,k_feat, n_words,n_max_neighbors);
     std::cout << "total = " << memt <<"\n";
+    std::cout << "n_users = " << n_users <<"\n";
+    std::cout << "n_items = " << n_items <<"\n";
+    std::cout << "n_words = " << n_words <<"\n";
+    std::cout << "n_max_neighbors = " << n_max_neighbors <<"\n";
+    std::cout << "n_ratings = " << n_ratings <<"\n";
+    std::cout << "n_wd_entries = " << n_wd_entries <<"\n";
+    std::cout << "k_feat = " << k_feat <<"\n";
+
 
 
 }
 
+void BatchPoissonNewArray::train(size_t n_iter, double tol) {
+    try {
+        std::cout << "n_iter = " << n_iter <<"\n";
+        std::cout << "tol = " << tol <<"\n";
+        init_aux_latent();
+        double old_elbo=-std::numeric_limits<double>::infinity();
+        double elbo=0;
+
+        for(auto i=0;i<n_iter;i++){
+
+                std::cout << "############ITERATION "<<i<<" of "<<n_iter<<endl;
+                std::cout << "Begin update latent variables"<<endl;
+                update_latent();
+                std::cout << "Begin update auxiliary variables"<<endl;
+                update_aux_latent();
+                elbo = compute_elbo();
 
 
-void BatchPoissonNewArray::init() {
+
+                elbo_lst.push_back(elbo);
+                std::cout << "Old ELBO="<<old_elbo<<"  ---- new ELBO="<< elbo<< " improvement = " << abs((elbo-old_elbo)/old_elbo) << endl;
+
+                if(abs((elbo-old_elbo)/old_elbo) < tol)
+                    break;
+                else
+                    old_elbo=elbo;
+
+
+
+        }
+        std::cout << "List os ELBO values";
+        std::copy(elbo_lst.begin(),
+                  elbo_lst.end(),
+                  std::ostream_iterator<double>(std::cout, " , "));
+    } catch (const std::bad_alloc& e) {
+        std::cout << "Allocation failed: " << e.what() << '\n';
+        exit(-1);
+    }
+}
+
+
+
+void BatchPoissonNewArray::init_train(vector<tuple<size_t, size_t, size_t>> r_entries,
+                                      vector<tuple<size_t, size_t, size_t>> w_entries,
+                                      vector< vector<size_t> > user_neighboors) {
+    this->r_entries=r_entries;
+    this->w_entries=w_entries;
+    this->user_neighboors=user_neighboors;
+    cout << "init_train " << endl;
+    std::cout << "r_entries.size = " << r_entries.size() <<"\n";
+    std::cout << "w_entries.size = " << w_entries.size() <<"\n";
+    std::cout << "user_neighboors.size = " << user_neighboors.size() <<"\n";
+
+
+    pair<size_t,size_t> temp=make_pair(0,0);
+
+    size_t ud;
+    for(ud=0; ud< _n_ratings;ud++) {
+        auto user_u = std::get<0>(r_entries[ud]);
+        auto item_i = std::get<1>(r_entries[ud]);
+        temp.first=user_u;
+        temp.second=item_i;
+        user_items_map[temp]=  ud;
+
+    }
+    temp=make_pair(0,0);
+    size_t current_user=0;
+    for(ud = 0; ud < _n_ratings; ud++) {
+        auto user_u = std::get<0>(r_entries[ud]);
+        auto item_i = std::get<1>(r_entries[ud]);
+        if(current_user!=user_u){
+            // generate a index with beginning index and end index for item rated by user in the user_item_rating matrix
+            //
+            temp.second=ud;
+            user_items_index[current_user]=temp;
+            temp=make_pair(ud,0);
+            current_user=user_u;
+            tau.b_latent(user_u)+=std::get<2>(r_entries[ud]); // b_tau_user_i = l + \sum_d r_{user_i,d}
+            //cout << "("<<user_u << ", " << item_i << "," << std::get<2>(r_entries[ud])<<"),";
+
+        }
+        size_t neigh_ord=0;
+        for(auto user_i : this->user_neighboors[user_u]){
+            // test which neighboor of user_u has item_i rated and point to the index on the rating matrix
+            pairmap::iterator ifind = user_items_map.find(make_pair(user_i,item_i));
+            if ( ifind != user_items_map.end() ){
+                // fill vector< list <  pair<size_t, size_t > > > user_items_neighboors;
+                // list<<pair<user_neighbor_i,index_in_r_entries>>
+                user_items_neighboors[ud].push_back(make_pair(user_i,ifind->second));
+
+            }
+            neigh_ord++;
+        }
+    }
+    temp.second=_n_ratings;
+    user_items_index[current_user]=temp;
+    //cout << "###########" <<endl;
+    //for(size_t i=0;i<user_items_index.size();i++)
+    //{
+    //    cout << "("<<i<<","<<user_items_index[i].first <<","<<user_items_index[i].second  << "),";
+    //}
+    beta.init_b_latent();
+    theta.init_b_latent();
+    epsilon.init_b_latent();
+    eta.init_b_latent();
+    cout << "tau_b="<< tau.b_latent << endl;
+}
+
+void BatchPoissonNewArray::init_aux_latent() {
+    phi.init_gamma_row_normalized();
+    xi_M.init_gamma_row_normalized();
+    xi_N.init_gamma_row_normalized();
+    xi_S.init_gamma_row_normalized();
+    //update_latent();
+    //update_expected();
+    //xi_S=0;
+    //xi_M=0;
+    //xi_N=0;
+    //xi_S=0;
+    //update_aux_latent();
 
 }
 
@@ -583,11 +274,17 @@ void BatchPoissonNewArray::update_latent() {
     epsilon.init_a_latent();
     eta.init_a_latent();
     tau.init_a_latent();
+    cout << "INIT#theta" << theta <<endl;
+    //cout << "INIT#eta" << eta <<endl;
+    //cout << "INIT#tau" << tau <<endl;
+    //cout << "INIT#epsilon" << epsilon <<endl;
+    //cout << "INIT#beta" << epsilon <<endl;
+
 
     for(size_t ud=0; ud< _n_ratings;ud++){
         auto user_u = std::get<0>(r_entries[ud]);
         auto item_i = std::get<1>(r_entries[ud]);
-        auto r_ud= std::get<2>(w_entries[ud]);
+        auto r_ud= std::get<2>(r_entries[ud]);
 
         for(size_t k=0; k< _k_feat;k++){
             auto rudk_M=r_ud*xi_M(ud,k);
@@ -598,14 +295,14 @@ void BatchPoissonNewArray::update_latent() {
         }
 
         for(auto neighb : user_items_neighboors[ud]) {
-            tau.a_latent(user_u,neighb.first)+=xi_S(ud,neighb.first);
+            tau.a_latent(user_u,neighb.first)+=r_ud*xi_S(ud,neighb.first);
         }
     }
     double temp_w;
     for(size_t dv=0; dv< _n_wd_entries;dv++){
 
-        auto word_w = std::get<0>(w_entries[dv]);
-        auto item_i = std::get<1>(w_entries[dv]);
+        auto word_w = std::get<1>(w_entries[dv]);
+        auto item_i = std::get<0>(w_entries[dv]);
         auto wdv= std::get<2>(w_entries[dv]);
         for(size_t k=0; k< _k_feat;k++) {
             temp_w=wdv*phi(dv,k);
@@ -617,26 +314,41 @@ void BatchPoissonNewArray::update_latent() {
 
 
     beta.init_b_latent();
+    eta.init_b_latent();
+    for(size_t k=0; k< _k_feat;k++) {
+        double sum_d_epsilon = epsilon.e_expected.col_sum(k);
+        double sum_d_theta = theta.e_expected.col_sum(k);
+        beta.b_latent(k)+= sum_d_theta;
+        eta.b_latent(k) += sum_d_theta + sum_d_epsilon;
+    }
+    beta.update_expected();
+    eta.update_expected();
+
+
     theta.init_b_latent();
     epsilon.init_b_latent();
-    eta.init_b_latent();
-
     for(size_t k=0; k< _k_feat;k++) {
-        float sum_d_theta,sum_d_epsilon,sum_u_eta,sum_v_beta;
-        sum_d_theta = theta.e_expected.col_sum(k);
-        sum_d_epsilon = epsilon.e_expected.col_sum(k);
-        sum_u_eta = eta.e_expected.col_sum(k);
-        sum_v_beta = beta.e_expected.col_sum(k);
-        beta.e_expected(k)+=sum_d_theta;
-        epsilon.e_expected(k)+=sum_u_eta;
-        theta.e_expected(k)+=sum_u_eta+sum_v_beta;
-        eta.e_expected(k)+=sum_d_theta+sum_d_epsilon;
+        double sum_u_eta = eta.e_expected.col_sum(k);
+        double sum_v_beta = beta.e_expected.col_sum(k);
+        epsilon.b_latent(k) += sum_u_eta;
+        theta.b_latent(k) += sum_u_eta + sum_v_beta;
     }
+    theta.update_expected();
+    epsilon.update_expected();
+    tau.update_expected();
+
+    //cout << "END#theta" << theta <<endl;
+    //cout << "AFTERTHETA#xi_M" << xi_M << endl;
+    //cout << "END#eta" << eta <<endl;
+    //cout << "END#tau" << tau <<endl;
+    //cout << "END#epsilon" << epsilon <<endl;
+    //cout << "END#beta" << epsilon <<endl;
 }
 
 void BatchPoissonNewArray::update_aux_latent() {
-    float sum_k=0;
+    double sum_k=0;
     for(auto ud=0; ud< _n_ratings;ud++) {
+        // TODO: implement LOG-SUM
         sum_k=0;
         auto user_u = std::get<0>(r_entries[ud]);
         auto item_i = std::get<1>(r_entries[ud]);
@@ -650,9 +362,11 @@ void BatchPoissonNewArray::update_aux_latent() {
         }
         xi_S.row(ud) = 0;
         for (auto neighb : user_items_neighboors[ud]) {
+            // user_items_neighboors[ud].push_back(make_pair(user_i,ifind->second));
             xi_S(ud,neighb.first) = std::get<2>(r_entries[neighb.second])
                                      * exp(tau.elog_expected(user_u,neighb.first));
             sum_k += xi_S(ud,neighb.first);
+
         }
         {
             xi_M.row(ud) /= sum_k;
@@ -664,11 +378,12 @@ void BatchPoissonNewArray::update_aux_latent() {
             xi_S.row(ud) /= sum_k;
         }
     }
+    cout << endl;
 
     for(auto dv=0; dv< _n_wd_entries;dv++){
         sum_k=0;
-        auto word_w = std::get<0>(w_entries[dv]);
-        auto item_i = std::get<1>(w_entries[dv]);
+        auto word_w = std::get<1>(w_entries[dv]);
+        auto item_i = std::get<0>(w_entries[dv]);
         for(auto k=0; k< _k_feat;k++){
             // self.phi = np.exp(self.Elogbeta[:, np.newaxis, :] + self.Elogtheta[:, :, np.newaxis])
             phi(dv,k)=exp(beta.elog_expected(word_w,k)+theta.elog_expected(item_i,k));
@@ -679,149 +394,221 @@ void BatchPoissonNewArray::update_aux_latent() {
         }
 
     }
+    cout << "#END UPDATE_AUX" << endl;
+    cout << "#xi_M" << xi_M.row(11685) << endl;
+    cout << "#xi_N" << xi_N.row(11685) << endl;
+    //cout << "#xi_S" << xi_S.row(11685) << endl;
+    //cout << "#xi_N" << xi_N << endl;
+    //cout << "#xi_S" << xi_S << endl;
+    cout << "#phi" << phi.row(0) << endl;
 
 }
 
-void BatchPoissonNewArray::update_expected() {
-    beta.update_expected();
-    theta.update_expected();
-    eta.update_expected();
-    epsilon.update_expected();
-    tau.update_expected();
-}
 
 double BatchPoissonNewArray::compute_elbo() {
-
-    double total_sum=0;
+    double total_sum;
+    total_sum = 0.0;
     double log_sum=0;
     // poisson termo of the ELBO for user-document ratings
     // sum_u,d,k{ Eq[log p(r_ud|*) ] }
-    for(auto ud=0; ud< _n_ratings;ud++) {
-        auto user_u = std::get<0>(r_entries[ud]);
-        auto item_i = std::get<1>(r_entries[ud]);
-        auto r_ud = std::get<2>(r_entries[ud]);
+    cout << r_entries.size() << " nrat " << _n_ratings;
+    for(size_t  ud=0; ud< _n_ratings;ud++) {
+        size_t  user_u = std::get<0>(r_entries[ud]);
+        size_t  item_i = std::get<1>(r_entries[ud]);
+        size_t  r_ud = std::get<2>(r_entries[ud]);
         log_sum=0;
-        for (auto k = 0; k < _k_feat; k++) {
+        for (size_t  k = 0; k < _k_feat; k++) {
             log_sum += xi_M(ud,k)*(eta.elog_expected(user_u,k)+theta.elog_expected(item_i,k)-log(xi_M(ud,k)))
                          + xi_N(ud,k)*(eta.elog_expected(user_u,k)+epsilon.elog_expected(item_i,k)-log(xi_N(ud,k)));
+            if(log_sum!=log_sum)
+            {
+                cout << "(NAN-logsum: ud="<<ud<<", k="<<k<<" xi_M(ud,k)="<<xi_M(ud,k)<<" xi_N(ud,k)="<<xi_N(ud,k)
+                     <<" E_q[log eta_uk]="<<eta.elog_expected(user_u,k)<<" E_q[log the_dk]="<<theta.elog_expected(item_i,k)
+                     <<" E_q[log eta_uk]="<<epsilon.elog_expected(user_u,k);
+            }
         }
-        for (auto neighb : user_items_neighboors[ud]) {
-            // neighb is user_i in N(user_u), neighb.first is its index in the trust tau variable
-            auto r_id = std::get<2>(r_entries[neighb.second]);
+        if(ud==0)
+            cout << "logsum = " << log_sum << " ";
+        for (pair<size_t,size_t> neighb : user_items_neighboors[ud]) {
+            //neighb is user_i in N(user_u), neighb.first is its index in the trust tau variable
+            // user_items_neighboors[ud].push_back(make_pair(user_i,ifind->second));
+            size_t  r_id = std::get<2>(r_entries[neighb.second]);
 
             log_sum += xi_S(ud,neighb.first)*(tau.elog_expected(user_u,neighb.first)+log(r_id )
                                                        -log(xi_S(ud,neighb.first)));
         }
-        total_sum+=r_ud*log_sum-LogFactorial(r_ud);
+        if(ud==0)
+            cout << "logsum = " << log_sum << " ";
+        total_sum+=r_ud*log_sum-boost::math::lgamma(r_ud+1);
+        if(boost::math::isnan( total_sum))
+            cout << "##LOG_SUM ud="<<ud<<", user_u="<<user_u<<"item_i="<<item_i<<" r_ud="<<r_ud<<"##";
         /** TODO:
          * - sum_u,d,k over Eq[latent variables] (Eq without log probability)
          */
     }
     // poisson termo of the ELBO for word-document count
     // sum_v,d,k{ Eq[log p(w_dv|*) ] }
-    for(auto dv=0; dv< _n_wd_entries;dv++){
-        auto word_w = std::get<0>(w_entries[dv]);
-        auto item_i = std::get<1>(w_entries[dv]);
-        auto w_dv = std::get<2>(w_entries[dv]);
+    //cout << xi_M;
+    //cout << theta;
+   // cout << endl;
+    //cout << "r entries "<< std::get<0>(r_entries[0]) << " " << std::get<1>(r_entries[0]) << " " << boost::math::lgamma(std::get<2>(r_entries[0])+1) << " " <<endl;
+    cout << "partial elbo 1 "<<total_sum;
+    cout << endl;
+    for(size_t dv=0; dv< _n_wd_entries;dv++){
+        size_t  word_w = std::get<1>(w_entries[dv]);
+        size_t item_i = std::get<0>(w_entries[dv]);
+        size_t  w_dv = std::get<2>(w_entries[dv]);
         log_sum=0;
-        for(auto k=0; k< _k_feat;k++){
+        for(size_t k=0; k< _k_feat;k++){
             log_sum += phi(dv,k)*(beta.elog_expected(word_w,k)+theta.elog_expected(item_i,k)- log(phi(dv,k)));
+            if(boost::math::isnan( log_sum))
+                cout << "##LOG_SUM dv="<<dv<<", k="<<k<<", word_w="<<word_w<<"item_i="<<item_i<<" phi(dv,k)="<<phi(dv,k)<<", beta.elog_expected(word_w,k)="
+                     <<beta.elog_expected(word_w,k)
+                     <<", beta.elog_expected(word_w,k)="<<beta.elog_expected(word_w,k)
+                     <<",theta.elog_expected(item_i,k)="<<theta.elog_expected(item_i,k)
+                     <<",log(phi(dv,k)))="<<log(phi(dv,k))
+                        <<"##";
+
         }
-        total_sum+=w_dv*log_sum-LogFactorial(w_dv);
+
+
+
+
+        total_sum+=(((double)w_dv)*log_sum)-boost::math::lgamma(w_dv+1);
+        if(boost::math::isnan( total_sum))
+            cout << "##LOG_SUM dv="<<dv<<", word_w="<<word_w<<"item_i="<<item_i<<" w_dv="<<w_dv<<"##";
+        /* if(w_dv >= 1){
+            try {
+                double x=boost::math::lgamma(w_dv+1);
+                //cout << "boot lgamma =" << x << " wdv=" << w_dv << endl ;
+                if(boost::math::isnan( log_sum))
+                    cout << "##LOG_SUM dv="<<dv<<", word_w="<<word_w<<"item_i="<<item_i<<" w_dv="<<w_dv<<"log-fact="<<x<<"##";
+                total_sum-=x;
+                //cout << "total_sum =" << total_sum << endl ;
+            } catch (const std::bad_alloc& e) {
+                std::cout << "Allocation failed: " << e.what() << '\n';
+                exit(-1);
+            }
+
+        }*/
+
+
         /** TODO:
          * - sum_v,d,k over Eq[latent variables] (Eq without log probability)
          */
 
     }
-    // Gamma terms for the latent variables
 
+    //term with sum of multiplication of expected-value of latent variables
+    // -sum_k,d,v E[theta_dk]*E[beta_vk]
+    total_sum+=theta.elbo_term_prod_linear_expectations(vector<gamma_latent*>({&beta}));
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM theta*beta";
+    // -sum_k,d,u E[theta_dk]*E[eta_uk]+E[epsilon_dk]*E[eta_uk]
+    total_sum+=eta.elbo_term_prod_linear_expectations(vector<gamma_latent*>({&theta,&epsilon}));
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM theta*eta+epsilon*eta";
+    total_sum+=tau_elbo_expected_linear_term();
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM tau";
+
+
+    // Gamma terms for the latent variables
     total_sum+=beta.elbo_term();
-    total_sum+=theta.elbo_term(vector<gamma_latent*>({&epsilon}));
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM gamma beta";
+    total_sum+=theta.elbo_term();
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM gamma theta";
+    total_sum+=epsilon.elbo_term();
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM gamma epsilon";
     total_sum+=eta.elbo_term();
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM  gamma eta";
     total_sum+=tau.elbo_term();
+    if(boost::math::isnan( total_sum ))
+        cout << "##TOTAL_SUM  gamma tau";
     return total_sum;
 }
-/*       a(a), b(b), c(c), d(d), e(e), f(f), g(g), h(h), k(k), l(l),
-        a_beta(arrman->makeArray(n_words,k_feat,a)),
-        b_beta(arrman->makeArray(k_feat,1,b)),
-        e_beta(arrman->makeArray(n_words,k_feat)),
-        elog_beta(arrman->makeArray(n_words,k_feat)),
-        a_theta(arrman->makeArray(n_items,k_feat,c)),
-        b_theta(arrman->makeArray(k_feat,1,d)),
-        e_theta(arrman->makeArray(n_items,k_feat)),
-        elog_theta(arrman->makeArray(n_items,k_feat)),
-        a_epsilon(arrman->makeArray(n_items,k_feat,g)),
-        b_epsilon(arrman->makeArray(k_feat,1,h)),
-        e_epsilon(arrman->makeArray(n_items,k_feat)),
-        elog_epsilon(arrman->makeArray(n_items,k_feat)),
-        eta.a_latent(arrman->makeArray(n_users,k_feat,e)),
-        b_eta(arrman->makeArray(k_feat,1,f)),
-        e_eta(arrman->makeArray(n_users,k_feat)),
-        elog_eta(arrman->makeArray(n_users,k_feat)),
-        a_tau(arrman->makeArray(n_users,n_max_neighbors,k)),
-        b_tau(arrman->makeArray(n_max_neighbors,1,l)),
-        e_tau(arrman->makeArray(n_users,n_max_neighbors)),
-        elog_tau(arrman->makeArray(n_users,n_max_neighbors)),
-        phi(arrman->makeArray(n_wd_entries,k_feat)),
-        xi_M(arrman->makeArray(n_ratings,k_feat)),
-        xi_N(arrman->makeArray(n_ratings,k_feat)),
-        xi_S(arrman->makeArray(n_ratings,n_max_neighbors))
+/*
+ * TODO:
+ * - Change everything about tau variable. There is two options:
+ * 1) kdim of tau variable is = n_users;
+ * 2) kdim of tau variable is = n_users_that_are_neighbors.
+ * In beginning to think that option 1) is better, but it will need some changing in other places
  *
+ * UPDATE: implemented option 1
  */
 
-std::ostream &operator<<(std::ostream &os, const BatchPoissonNewArray &poisson) {
-    ;
-}
-
-void BatchPoissonNewArray::train(vector<tuple<size_t, size_t, size_t>> r_entries,
-                                 vector<tuple<size_t, size_t, size_t>> w_entries,
-                                 vector<list<pair<size_t, size_t>>> user_items_neighboors, size_t n_iter, double tol) {
-
-    this->r_entries = r_entries;
-    this->w_entries = w_entries;
-    this->user_items_neighboors = user_items_neighboors;
-    double old_elbo=-std::numeric_limits<double>::infinity();
-    double elbo;
-    for(auto i=0;i<n_iter;i++){
-
-        update_latent();
-        update_aux_latent();
-        update_expected();
-        elbo = compute_elbo();
-        elbo_lst.push_back(elbo);
-        if(abs(elbo-old_elbo)/old_elbo < tol)
-            break;
-        else{
-            old_elbo=elbo;
+double BatchPoissonNewArray::tau_elbo_expected_linear_term() {
+    double total_sum=0;
+    for(size_t u=0;u < _n_users ;u++) {
+        for(size_t i : user_neighboors[u]) {
+            for(size_t d=user_items_index[i].first; d<user_items_index[i].second;d++) {
+                size_t r_id = std::get<2>(r_entries[d]);
+                total_sum+=tau.e_expected(u,i)*r_id;
+            }
         }
-
     }
-
+    return -total_sum;
 }
 
+
+vector<vector<double>>  BatchPoissonNewArray::estimate() {
+    vector<vector<double>> ret(_n_users);
+    for(size_t user_u=0;user_u < _n_users; user_u++){
+        for(size_t item_i=0;item_i < _n_items ; item_i++){
+            double r_ui = 0;
+            for(size_t k=0;k<_k_feat;k++){
+                r_ui += eta.e_expected(user_u,k)*(epsilon.e_expected(item_i,k)+theta.e_expected(item_i,k));
+            }
+            for(size_t user_i : user_neighboors[user_u]){
+                pairmap::iterator ifind = user_items_map.find(make_pair(user_i,item_i));
+                if ( ifind != user_items_map.end() )
+                    r_ui += tau.e_expected(user_u,user_i)*ifind->second;
+            }
+            ret[user_u].push_back(r_ui);
+        }
+    }
+    return ret;
+}
+
+vector<vector<size_t>> BatchPoissonNewArray::recommend(size_t m) {
+    return vector<vector<size_t>>();
+}
 
 
 vars operator++(vars &x) { return x = (vars)(((int)(x) + 1)); }
 
-gamma_latent::gamma_latent(const Arrayf &a_latent, const Arrayf &b_latent, const Arrayf &e_expected,
-                           const Arrayf &elog_expected, float a, float b) : a_latent(a_latent), b_latent(b_latent),
-                                                                            e_expected(e_expected),
-                                                                            elog_expected(elog_expected), a(a), b(b) {}
+
 
 void gamma_latent::update_expected() {
-    for ( long i=0; i< a_latent.rows();i++ ){
-        for( long k=0; k< a_latent.cols();k++){
+    for ( size_t i=0; i< a_latent.rows();i++ ){
+        for( size_t k=0; k< a_latent.cols();k++){
             e_expected(i,k) = a_latent(i,k)/b_latent(k);
-            //elog_x(i,k) = (float)(digammal(a_x(i,k))-log(b_x(k))); // using standalone implementation
+            if(i==k && i==0)
+            {
+                if(boost::math::isnan( e_expected(i,k)))
+                    cout << "NAN-EXP "<<i<<" "<<k<<" a_latent="<<a_latent(i,k)<<" b_latent="<<b_latent(k);
+            }
+
+            //elog_x(i,k) = (double)(digammal(a_x(i,k))-log(b_x(k))); // using standalone implementation
             elog_expected(i, k) = boost::math::digamma(a_latent(i, k)) - log(b_latent(k)); // using boost implementation
+            if(i==k && i==0) {
+                if (boost::math::isnan(elog_expected(i, k)))
+                    cout << "NAN-LOGEXP " << i << " " << k << " digama a_latent="
+                         << boost::math::digamma(a_latent(i, k)) << " b_latent=" << b_latent(k) << " log b"
+                         << log(b_latent(k));
+            }
         }
     }
 }
 
 double gamma_latent::elbo_term() {
     double total_sum=0;
-    for(auto d=0;d<a_latent.nrow;d++){
-        for(auto k=0; k<a_latent.ncol;k++){
+    for( size_t  d=0;d<a_latent.nrow;d++){
+        for( size_t  k=0; k<a_latent.ncol;k++){
             total_sum+=gamma_term(a,b,a_latent(d,k),b_latent(k),e_expected(d,k),elog_expected(d,k));
         }
     }
@@ -830,8 +617,8 @@ double gamma_latent::elbo_term() {
 
 double gamma_latent::elbo_term(vector<gamma_latent*> vars) {
     double total_sum=0;
-    for(auto d=0;d<a_latent.nrow;d++){
-        for(auto k=0; k<a_latent.ncol;k++){
+    for( size_t d=0;d<a_latent.nrow;d++){
+        for( size_t  k=0; k<a_latent.ncol;k++){
             total_sum+=gamma_term(a,b,a_latent(d,k),b_latent(k),e_expected(d,k),elog_expected(d,k));
             for(gamma_latent* var : vars){
                 if(var)
@@ -844,12 +631,13 @@ double gamma_latent::elbo_term(vector<gamma_latent*> vars) {
 
 
 
-gamma_latent::gamma_latent( ArrayManager<float>* arrman, size_t nrows, size_t ncols, float a, float b):
-a(a), b(b), a_latent(arrman->makeArray(nrows,ncols,a)),b_latent(arrman->makeArray(ncols,b)),
-e_expected(arrman->makeArray(nrows,ncols)),elog_expected(arrman->makeArray(nrows,ncols))
-{
 
-}
+gamma_latent::gamma_latent(const Arrayf &a_latent, const Arrayf &b_latent, const Arrayf &e_expected,
+                           const Arrayf &elog_expected, double a, double b) :
+        a_latent(a_latent), b_latent(b_latent),
+        e_expected(e_expected),
+        elog_expected(elog_expected), a(a), b(b),
+        nvars(a_latent.nrow),kdim(a_latent.ncol){}
 
 void gamma_latent::init_b_latent() {
     b_latent=b;
@@ -857,6 +645,41 @@ void gamma_latent::init_b_latent() {
 
 void gamma_latent::init_a_latent() {
     a_latent=a;
+
+}
+
+double gamma_latent::elbo_term_prod_linear_expectations(vector<gamma_latent *> vars) {
+    double total_sum=0;
+
+
+    for(gamma_latent* var : vars)
+    {
+        if(var)
+        {
+
+            for( size_t  j=0;j<(var->nvars);j++)
+            {
+                for (int k = 0; k < kdim; ++k)
+                {
+                    auto expjk=var->e_expected(j,k);
+                    for( size_t  i=0;i<nvars;i++)
+                        total_sum+=e_expected(i,k)*expjk;
+                }
+            }
+        }
+    }
+
+
+    return (-total_sum);
+}
+
+
+
+gamma_latent::gamma_latent( ArrayManager<double>* arrman, size_t nrows, size_t ncols, double a, double b):
+        a(a), b(b), a_latent(arrman->makeArray(nrows,ncols,a)),b_latent(arrman->makeArray(ncols,b)),
+        e_expected(arrman->makeArray(nrows,ncols)),elog_expected(arrman->makeArray(nrows,ncols)),
+        nvars(nrows),kdim(ncols)
+{
 
 }
 

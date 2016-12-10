@@ -4,11 +4,15 @@
       <w>eigen</w>
       <w>elbo</w>
       <w>elog</w>
+      <w>expjk</w>
+      <w>ifind</w>
       <w>irow</w>
+      <w>myfile</w>
       <w>ncol</w>
       <w>neighb</w>
       <w>neighboors</w>
       <w>nrow</w>
+      <w>pairmap</w>
     </words>
   </dictionary>
 </component>

@@ -74,6 +74,10 @@ public:
     {
         return data[column];
     }
+    T& operator [](size_t column)
+    {
+        return data[column];
+    }
     Array<T>& operator=(const T rhs) {
 
         for(T* data_start=data;data_start!=data_end;data_start++){
@@ -297,8 +301,7 @@ public:
 
 
 class BatchPoissonNewArray {
-private:
-    double tau_elbo_expected_linear_term();
+
 public:
 
     ArrayManager<double>* arrman;
@@ -337,55 +340,47 @@ public:
 
 
 
-    BatchPoissonNewArray(size_t n_ratings,size_t n_wd_entries,size_t n_users, size_t n_items, size_t k_feat, size_t n_words,size_t n_max_neighbors,
+     BatchPoissonNewArray(size_t n_ratings,size_t n_wd_entries,size_t n_users, size_t n_items, size_t k_feat, size_t n_words,size_t n_max_neighbors,
                  double a=0.1, double b=0.1, double c=0.1, double d=0.1, double e=0.1, double f=0.1, double g=0.1,
                  double h=0.1, double k=0.1, double l=0.1);
 
 
 
     void train(size_t n_iter, double tol);
-    void init_train(vector<tuple<size_t, size_t, size_t>> r_entries,
+    virtual void init_train(vector<tuple<size_t, size_t, size_t>> r_entries,
                     vector<tuple<size_t, size_t, size_t>> w_entries,vector< vector < size_t > > user_neighboors);
 
-    void update_latent();
+    virtual void update_latent();
 
-    void update_aux_latent();
+    virtual void update_aux_latent();
 
     void init_aux_latent();
 
-    double compute_elbo();
+    virtual double compute_elbo();
 
-    vector<vector<double>> estimate();
+    virtual vector<vector<double>> estimate();
 
     vector<vector<size_t>> recommend(size_t m);
 
-    virtual ~BatchPoissonNewArray(){
-        arrman->~ArrayManager();
-    }
+    virtual double tau_elbo_expected_linear_term();
+    virtual ~BatchPoissonNewArray();
 
     friend std::ostream &operator<<(std::ostream &os, BatchPoissonNewArray &var){
 
         for(auto v : var.estimate())
         {
+            cout << v.size() << "||";
             std::copy (v.begin(), v.end(), std::ostream_iterator<double>(os, "\t"));
             os << endl;
         }
-
-        return os;
-    }
-    friend std::ostream &operator<<(std::ostream &os, BatchPoissonNewArray &var,bool estimate){
-
-        for(auto v : var.estimate())
-        {
-            std::copy (v.begin(), v.end(), std::ostream_iterator<double>(os, "\t"));
-            os << endl;
-        }
+        cout << endl;
 
         return os;
     }
 
-
+    void recommend(ostream &output, size_t m);
 };
+
 
 
 // auxiliary numerical functions

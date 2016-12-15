@@ -2,6 +2,7 @@
 // Created by eliezer on 23.11.16.
 //
 #include "datasets.h"
+#include "BatchPoissonWeight.h"
 #include <string>
 #include <vector>
 #include <iostream>
@@ -9,6 +10,37 @@
 #include <sstream>
 
 
+void print(std::ostream &os, vector<vector<size_t>> &var){
+
+    for(auto v : var)
+    {
+        bool first = true;
+        for(auto elem : v){
+            if(first)
+                first=false;
+            else
+                os<<"\t";
+            os<<elem;
+
+        }
+        os << endl;
+    }
+}
+
+
+
+template <typename T>
+std::ostream& operator<<(std::ostream& output, const vector<vector<T>> &var);
+
+template<typename T>
+std::ostream &operator<<(std::ostream &output, const vector<vector<T>> &var) {
+    for(auto v : var)
+    {
+        std::copy (v.begin(), v.end(), std::ostream_iterator<T>(output, "\t"));
+        output << endl;
+    }
+    return output;
+}
 
 
 experiment::experiment(string rootfolder, string tags_count_file, string ratings_train_file, string user_friends_file,
@@ -22,11 +54,11 @@ experiment::experiment(string rootfolder, string tags_count_file, string ratings
 
 }
 
-void experiment::run(size_t k_feat,size_t niter, size_t dec) {
+void experiment::run(size_t k_feat,size_t niter, size_t dec, Options options) {
     try {
 
 
-        vector<tuple<size_t, size_t, size_t>> r_entries = load_3_tuple_vec<size_t>(rootfolder + ratings_train_file, 0);
+        vector<tuple<size_t, size_t, size_t>> r_entries = load_3_tuple_vec<size_t>(rootfolder + ratings_train_file, Options::onevalue);
         vector<tuple<size_t, size_t, size_t>> w_entries = load_3_tuple_vec<size_t>(rootfolder + tags_count_file);
         vector<vector<size_t> > user_neighboors = process_friend_pair(load_pair_vec<size_t, size_t >(rootfolder + user_friends_file));
         vector<pair<size_t, string>> tags = load_pair_vec<size_t, string>(rootfolder + tags_name_file);
@@ -42,14 +74,16 @@ void experiment::run(size_t k_feat,size_t niter, size_t dec) {
                                                             n_items, k_feat, n_words, n_max_neighbors);
         poisson.init_train(r_entries, w_entries, user_neighboors);
         poisson.train(niter, 1.0l / pow(10, dec));
-
-         ofstream myfile(rootfolder + "experiment_k" + std::to_string(k_feat) + "_it" + std::to_string(niter) + "_tol" +
-                        std::to_string(dec) + ".res");
-        cout << "##results_file=" << rootfolder + "experiment_k" + std::to_string(k_feat) + "_it" + std::to_string(niter) + "_tol" +
-                             std::to_string(dec) + ".res";
+        string file_mat = rootfolder + "experiment_k" + std::to_string(k_feat) + "_it" + std::to_string(niter) + "_tol" +
+                       std::to_string(dec) + ".mat";
+        string file_rec = rootfolder + "experiment_k" + std::to_string(k_feat) + "_it" + std::to_string(niter) + "_tol" +
+                          std::to_string(dec) + ".rec";
+         ofstream myfile(file_rec);
+        cout << "##results_file=" << file_rec;
 
         if (myfile.is_open()) {
-           myfile << poisson;
+            vector<vector<size_t >> recs=poisson.recommend(1000);
+           print (myfile, recs);
         }
     } catch (const std::exception& e) {
         std::cout << "Allocation failed: " << e.what() << '\n';
@@ -58,8 +92,70 @@ void experiment::run(size_t k_feat,size_t niter, size_t dec) {
 
 }
 
+
+void experiment::run(size_t k_feat,size_t niter, size_t dec,size_t n_rec,double init_w_content, double init_w_social,bool learn,Options options) {
+    try {
+
+
+            vector<tuple<size_t, size_t, size_t>> r_entries = load_3_tuple_vec<size_t>(rootfolder + ratings_train_file, Options::onevalue);
+            vector<tuple<size_t, size_t, size_t>> w_entries = load_3_tuple_vec<size_t>(rootfolder + tags_count_file);
+            vector<vector<size_t> > user_neighboors = process_friend_pair(load_pair_vec<size_t, size_t >(rootfolder + user_friends_file));
+            vector<pair<size_t, string>> tags = load_pair_vec<size_t, string>(rootfolder + tags_name_file);
+
+
+            size_t n_ratings = r_entries.size();
+            size_t n_wd_entries = w_entries.size();
+            size_t n_users = std::get<0>(r_entries[r_entries.size() - 1])+1;
+            size_t n_items = std::get<0>(w_entries[w_entries.size() - 1])+2;
+            size_t n_words = std::get<0>(tags[tags.size() - 1])+1;
+            size_t n_max_neighbors = n_users;
+            BatchPoissonWeight poisson = BatchPoissonWeight(n_ratings, n_wd_entries, n_users,n_items, k_feat, n_words, n_max_neighbors,1.0,1.0,learn,
+            0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1);
+            poisson.init_train(r_entries, w_entries, user_neighboors);
+            poisson.train(niter, 1.0l / pow(10, dec));
+
+
+            if(n_rec==0)
+            {
+                string file_mat = rootfolder + "experiment_w_k" + std::to_string(k_feat) + "_it" + std::to_string(niter) + "_tol" +
+                                  std::to_string(dec)+"_contw"+std::to_string(poisson.lambda_content.e_expected)
+                                  +"_socw"+std::to_string(poisson.lambda_social.e_expected) + ".mat";
+                ofstream myfile(file_mat);
+                cout << "##results_file=" << file_mat;
+                if (myfile.is_open()){
+                    myfile << poisson.BatchPoissonNewArray::estimate();
+                }
+            }
+            else{
+                string file_rec = rootfolder + "experiment_w_k" + std::to_string(k_feat) + "_it" + std::to_string(niter) + "_tol" +
+                                  std::to_string(dec)+"_contw"+std::to_string(poisson.lambda_content.e_expected)
+                                  +"_socw"+std::to_string(poisson.lambda_social.e_expected) + ".rec";
+                ofstream myfile(file_rec);
+                if (myfile.is_open()) {
+                    //vector<vector<size_t >> recs=poisson.recommend(1000);
+                    //print (cout, recs);
+                    //print (myfile, recs);
+                    poisson.recommend(cout,n_rec);
+                }
+            }
+
+
+
+
+    } catch (const std::exception& e) {
+        std::cout << "Allocation failed: " << e.what() << '\n';
+        exit(-1);
+    }
+}
+
+
+void experiment::run(size_t k_feat,size_t niter, size_t dec,size_t n_rec,  bool learn, Options options) {
+    run(k_feat, niter, dec,n_rec, 1.0,1.0,learn,options);
+}
+
+
 template<typename T>
-vector<tuple<T, T, T>> experiment::load_3_tuple_vec(string filename, int option) {
+vector<tuple<T, T, T>> experiment::load_3_tuple_vec(string filename, Options options) {
     vector<tuple<T, T, T>> ret;
     string line;
     ifstream myfile (filename);
@@ -73,9 +169,9 @@ vector<tuple<T, T, T>> experiment::load_3_tuple_vec(string filename, int option)
             for(auto i=0;i<3;i++){
                 ss >> temp_v[i];
             }
-            if(option == 1)
+            if(options == Options::onevalue)
                 temp_v[2]=1;
-            if(option == 2)
+            if(options == Options::logvalue)
                 temp_v[2]=boost::integer_log2(temp_v[2]+2);
             ret.push_back(make_tuple(temp_v[0],temp_v[1],temp_v[2]));
         }
@@ -180,6 +276,8 @@ vector<vector<T>> experiment::load_col_vec(string filename,size_t ncol) {
     }
     return ret;
 }
+
+
 
 
 

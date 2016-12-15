@@ -187,7 +187,7 @@ void BatchPoissonNewArray::train(size_t n_iter, double tol) {
 
 
 
-void BatchPoissonNewArray::init_train(vector<tuple<size_t, size_t, size_t>> r_entries,
+ void BatchPoissonNewArray::init_train(vector<tuple<size_t, size_t, size_t>> r_entries,
                                       vector<tuple<size_t, size_t, size_t>> w_entries,
                                       vector< vector<size_t> > user_neighboors) {
     this->r_entries=r_entries;
@@ -215,6 +215,8 @@ void BatchPoissonNewArray::init_train(vector<tuple<size_t, size_t, size_t>> r_en
     for(ud = 0; ud < _n_ratings; ud++) {
         auto user_u = std::get<0>(r_entries[ud]);
         auto item_i = std::get<1>(r_entries[ud]);
+        tau.b_latent(user_u)+=std::get<2>(r_entries[ud]); // b_tau_user_i = l + \sum_d r_{user_i,d}
+
         if(current_user!=user_u){
             // generate a index with beginning index and end index for item rated by user in the user_item_rating matrix
             //
@@ -222,7 +224,6 @@ void BatchPoissonNewArray::init_train(vector<tuple<size_t, size_t, size_t>> r_en
             user_items_index[current_user]=temp;
             temp=make_pair(ud,0);
             current_user=user_u;
-            tau.b_latent(user_u)+=std::get<2>(r_entries[ud]); // b_tau_user_i = l + \sum_d r_{user_i,d}
             //cout << "("<<user_u << ", " << item_i << "," << std::get<2>(r_entries[ud])<<"),";
 
         }
@@ -418,8 +419,10 @@ double BatchPoissonNewArray::compute_elbo() {
         size_t  r_ud = std::get<2>(r_entries[ud]);
         log_sum=0;
         for (size_t  k = 0; k < _k_feat; k++) {
-            log_sum += xi_M(ud,k)*(eta.elog_expected(user_u,k)+theta.elog_expected(item_i,k)-log(xi_M(ud,k)))
-                         + xi_N(ud,k)*(eta.elog_expected(user_u,k)+epsilon.elog_expected(item_i,k)-log(xi_N(ud,k)));
+            if(xi_M(ud,k) > 0)
+                log_sum += xi_M(ud,k)*(eta.elog_expected(user_u,k)+theta.elog_expected(item_i,k)-log(xi_M(ud,k)));
+            if(xi_N(ud,k) > 0)
+                log_sum += xi_N(ud,k)*(eta.elog_expected(user_u,k)+epsilon.elog_expected(item_i,k)-log(xi_N(ud,k)));
             if(log_sum!=log_sum)
             {
                 cout << "(NAN-logsum: ud="<<ud<<", k="<<k<<" xi_M(ud,k)="<<xi_M(ud,k)<<" xi_N(ud,k)="<<xi_N(ud,k)
@@ -433,8 +436,8 @@ double BatchPoissonNewArray::compute_elbo() {
             //neighb is user_i in N(user_u), neighb.first is its index in the trust tau variable
             // user_items_neighboors[ud].push_back(make_pair(user_i,ifind->second));
             size_t  r_id = std::get<2>(r_entries[neighb.second]);
-
-            log_sum += xi_S(ud,neighb.first)*(tau.elog_expected(user_u,neighb.first)+log(r_id )
+            if(xi_S(ud,neighb.first) > 0)
+                log_sum += xi_S(ud,neighb.first)*(tau.elog_expected(user_u,neighb.first)+log(r_id )
                                                        -log(xi_S(ud,neighb.first)));
         }
         if(ud==0)
@@ -556,6 +559,7 @@ double BatchPoissonNewArray::tau_elbo_expected_linear_term() {
 
 
 vector<vector<double>>  BatchPoissonNewArray::estimate() {
+    cout << "begin estimate" <<endl;
     vector<vector<double>> ret(_n_users);
     for(size_t user_u=0;user_u < _n_users; user_u++){
         for(size_t item_i=0;item_i < _n_items ; item_i++){
@@ -571,11 +575,68 @@ vector<vector<double>>  BatchPoissonNewArray::estimate() {
             ret[user_u].push_back(r_ui);
         }
     }
+    cout << "end estimate" <<endl;
     return ret;
 }
 
+struct predicate
+{
+    bool operator()(const std::pair<double,size_t> &left, const std::pair<double,size_t> &right)
+    {
+        return left.first < right.first;
+    }
+};
+
 vector<vector<size_t>> BatchPoissonNewArray::recommend(size_t m) {
-    return vector<vector<size_t>>();
+    cout << "begin recommend" <<endl;
+
+    vector<vector<double>> ret= estimate();
+    vector<vector<size_t>> rec;
+    ;
+
+    for(size_t user_u=0;user_u < _n_users; user_u++)
+    {
+        vector<pair<double,size_t>> scores;
+        for(size_t item_i=0;item_i < _n_items ; item_i++){
+            scores.push_back(make_pair(ret[user_u][item_i],item_i));
+        }
+        std::sort(scores.begin(),scores.end(),predicate());
+        vector<size_t> temp;
+        for(size_t i=0; i < m ; i++)
+        {
+            //cout << "(" <<scores[i].first <<","<<scores[i].second<<")";
+            temp.push_back(scores[i].second);
+        }
+        rec.push_back(temp);
+    }
+    return rec;
+}
+
+void BatchPoissonNewArray::recommend(std::ostream &output, size_t m) {
+    cout << "begin recommend save" <<endl;
+
+    vector<vector<double>> ret= estimate();
+
+    for(size_t user_u=0;user_u < _n_users; user_u++)
+    {
+        vector<pair<double,size_t>> scores;
+        for(size_t item_i=0;item_i < _n_items ; item_i++){
+            scores.push_back(make_pair(ret[user_u][item_i],item_i));
+        }
+        std::sort(scores.begin(),scores.end(),predicate());
+        vector<size_t> temp;
+        for(size_t i=0; i < m ; i++)
+        {
+            //cout << "(" <<scores[i].first <<","<<scores[i].second<<")";
+            temp.push_back(scores[i].second);
+        }
+        std::copy (temp.begin(), temp.end(), std::ostream_iterator<size_t>(output, "\t"));
+        output << endl;
+    }
+}
+
+BatchPoissonNewArray::~BatchPoissonNewArray() {
+    arrman->~ArrayManager();
 }
 
 
@@ -682,6 +743,8 @@ gamma_latent::gamma_latent( ArrayManager<double>* arrman, size_t nrows, size_t n
 {
 
 }
+
+
 
 
 

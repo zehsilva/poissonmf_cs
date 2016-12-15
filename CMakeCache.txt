@@ -184,6 +184,12 @@ poisson_scr_cpp_BINARY_DIR:STATIC=/home/eliezer/Dropbox/repo-phd/poissoncpp
 //Value Computed by CMake
 poisson_scr_cpp_SOURCE_DIR:STATIC=/home/eliezer/Dropbox/repo-phd/poissoncpp
 
+//Value Computed by CMake
+poisson_weighted_learn_BINARY_DIR:STATIC=/home/eliezer/Dropbox/repo-phd/poissoncpp
+
+//Value Computed by CMake
+poisson_weighted_learn_SOURCE_DIR:STATIC=/home/eliezer/Dropbox/repo-phd/poissoncpp
+
 
 ########################
 # INTERNAL cache entries

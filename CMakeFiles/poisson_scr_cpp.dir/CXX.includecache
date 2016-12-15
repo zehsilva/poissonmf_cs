@@ -52,9 +52,23 @@ boost/unordered_map.hpp
 unordered_map
 -
 
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.cpp
+BatchPoissonWeight.h
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.h
+BatchPoissonPure.h
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonPure.h
+
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.h
+cmath
+-
+BatchPoissonPure.h
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonPure.h
+
 /home/eliezer/Dropbox/repo-phd/poissoncpp/datasets.cpp
 datasets.h
 /home/eliezer/Dropbox/repo-phd/poissoncpp/datasets.h
+BatchPoissonWeight.h
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.h
 string
 -
 vector

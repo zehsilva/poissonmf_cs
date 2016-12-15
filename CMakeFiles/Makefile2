@@ -60,13 +60,50 @@ CMAKE_SOURCE_DIR = /home/eliezer/Dropbox/repo-phd/poissoncpp
 CMAKE_BINARY_DIR = /home/eliezer/Dropbox/repo-phd/poissoncpp
 
 #=============================================================================
+# Target rules for target CMakeFiles/poisson_weighted_learn.dir
+
+# All Build rule for target.
+CMakeFiles/poisson_weighted_learn.dir/all:
+	$(MAKE) -f CMakeFiles/poisson_weighted_learn.dir/build.make CMakeFiles/poisson_weighted_learn.dir/depend
+	$(MAKE) -f CMakeFiles/poisson_weighted_learn.dir/build.make CMakeFiles/poisson_weighted_learn.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles --progress-num=6,7,8,9,10 "Built target poisson_weighted_learn"
+.PHONY : CMakeFiles/poisson_weighted_learn.dir/all
+
+# Include target in all.
+all: CMakeFiles/poisson_weighted_learn.dir/all
+
+.PHONY : all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/poisson_weighted_learn.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles 5
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/poisson_weighted_learn.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles 0
+.PHONY : CMakeFiles/poisson_weighted_learn.dir/rule
+
+# Convenience name for target.
+poisson_weighted_learn: CMakeFiles/poisson_weighted_learn.dir/rule
+
+.PHONY : poisson_weighted_learn
+
+# clean rule for target.
+CMakeFiles/poisson_weighted_learn.dir/clean:
+	$(MAKE) -f CMakeFiles/poisson_weighted_learn.dir/build.make CMakeFiles/poisson_weighted_learn.dir/clean
+.PHONY : CMakeFiles/poisson_weighted_learn.dir/clean
+
+# clean rule for target.
+clean: CMakeFiles/poisson_weighted_learn.dir/clean
+
+.PHONY : clean
+
+#=============================================================================
 # Target rules for target CMakeFiles/poisson_scr_cpp.dir
 
 # All Build rule for target.
 CMakeFiles/poisson_scr_cpp.dir/all:
 	$(MAKE) -f CMakeFiles/poisson_scr_cpp.dir/build.make CMakeFiles/poisson_scr_cpp.dir/depend
 	$(MAKE) -f CMakeFiles/poisson_scr_cpp.dir/build.make CMakeFiles/poisson_scr_cpp.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles --progress-num=1,2,3,4 "Built target poisson_scr_cpp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles --progress-num=1,2,3,4,5 "Built target poisson_scr_cpp"
 .PHONY : CMakeFiles/poisson_scr_cpp.dir/all
 
 # Include target in all.
@@ -76,7 +113,7 @@ all: CMakeFiles/poisson_scr_cpp.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/poisson_scr_cpp.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles 5
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/poisson_scr_cpp.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles 0
 .PHONY : CMakeFiles/poisson_scr_cpp.dir/rule

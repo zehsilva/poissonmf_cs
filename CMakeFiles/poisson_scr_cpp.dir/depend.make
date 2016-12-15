@@ -4,7 +4,12 @@
 CMakeFiles/poisson_scr_cpp.dir/BatchPoissonPure.cpp.o: BatchPoissonPure.cpp
 CMakeFiles/poisson_scr_cpp.dir/BatchPoissonPure.cpp.o: BatchPoissonPure.h
 
+CMakeFiles/poisson_scr_cpp.dir/BatchPoissonWeight.cpp.o: BatchPoissonPure.h
+CMakeFiles/poisson_scr_cpp.dir/BatchPoissonWeight.cpp.o: BatchPoissonWeight.cpp
+CMakeFiles/poisson_scr_cpp.dir/BatchPoissonWeight.cpp.o: BatchPoissonWeight.h
+
 CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o: BatchPoissonPure.h
+CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o: BatchPoissonWeight.h
 CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o: datasets.cpp
 CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o: datasets.h
 

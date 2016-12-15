@@ -5,6 +5,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
   "/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonPure.cpp" "/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/poisson_scr_cpp.dir/BatchPoissonPure.cpp.o"
+  "/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.cpp" "/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/poisson_scr_cpp.dir/BatchPoissonWeight.cpp.o"
   "/home/eliezer/Dropbox/repo-phd/poissoncpp/datasets.cpp" "/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/poisson_scr_cpp.dir/datasets.cpp.o"
   "/home/eliezer/Dropbox/repo-phd/poissoncpp/main.cpp" "/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/poisson_scr_cpp.dir/main.cpp.o"
   )

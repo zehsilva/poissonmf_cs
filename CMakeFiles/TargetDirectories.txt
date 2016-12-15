@@ -1,3 +1,4 @@
 /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/edit_cache.dir
 /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/rebuild_cache.dir
+/home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/poisson_weighted_learn.dir
 /home/eliezer/Dropbox/repo-phd/poissoncpp/CMakeFiles/poisson_scr_cpp.dir

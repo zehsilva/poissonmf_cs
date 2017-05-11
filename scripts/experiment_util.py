@@ -132,7 +132,38 @@ class LoadLastFM(object):
         artist_indexes_test = artist_indexes[user_filter_test_index]
         self.mat_users_artists_train[users_indexes_train, artist_indexes_train] = 1
         self.mat_users_artists_test[users_indexes_test, artist_indexes_test] = 1
+    
+class LoadDelicious(LoadLastFM):
+    def __init__(self,folder='/home/eliezer/datasets/hetrec2011/delicious/'):
+        self.rootfolder = folder
+        
+        self.artists_id = None
+        self.users_id = None
+        self.artists_inv_id = None
+        self.users_inv_id = None
+        
+        self.list_friends_id = None
+        self.tags_id = None
+        self.tags_inv_id = None
+        self.map_tag_id_name = None
+        self.map_tag_name_id = None
+        self.artists_tags_id = None
+        
+        self.n_tags = None
+        self.n_artists = None
+        self.n_max_friends = None
+        self.n_users = None
+        
+        self.mat_artists_tags = None
+        self.mat_users_friends = None
+        self.mat_users_artists = None
 
+        self.mat_users_artists_train = None
+        self.mat_users_artists_test = None
+        self.userid_nitems=None
+
+        self.train_percentage = 0.90
+        self.min_train_items = 5
 
 # select index row index of a user given user index in column 0
 def user_row_idx(user_artist_tuple, user_id):

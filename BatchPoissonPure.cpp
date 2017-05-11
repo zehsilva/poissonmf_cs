@@ -7,7 +7,7 @@
 #include "BatchPoissonPure.h"
 #include <math.h>
 #include <limits>
-
+#include <algorithm>
 #include <cmath>
 #include <sstream>
 #include <stdexcept>
@@ -131,8 +131,8 @@ BatchPoissonNewArray::BatchPoissonNewArray(size_t n_ratings, size_t n_wd_entries
         user_items_neighboors(vector< list <  pair<size_t, size_t > > >(n_ratings))
 {
 
-    size_t memt= total_memory(n_ratings,n_wd_entries, n_users,  n_items,k_feat, n_words,n_max_neighbors);
-    std::cout << "total = " << memt <<"\n";
+    mem_use= total_memory(n_ratings,n_wd_entries, n_users,  n_items,k_feat, n_words,n_max_neighbors);
+    std::cout << "total = " << mem_use <<"\n";
     std::cout << "n_users = " << n_users <<"\n";
     std::cout << "n_items = " << n_items <<"\n";
     std::cout << "n_words = " << n_words <<"\n";
@@ -590,7 +590,7 @@ struct predicate
 vector<vector<size_t>> BatchPoissonNewArray::recommend(size_t m) {
     cout << "begin recommend" <<endl;
 
-    vector<vector<double>> ret= estimate();
+    vector< vector<double>> ret= estimate();
     vector<vector<size_t>> rec;
     ;
 
@@ -598,15 +598,19 @@ vector<vector<size_t>> BatchPoissonNewArray::recommend(size_t m) {
     {
         vector<pair<double,size_t>> scores;
         for(size_t item_i=0;item_i < _n_items ; item_i++){
-            scores.push_back(make_pair(ret[user_u][item_i],item_i));
+            // recommend only items that are not already rated by the user
+            if(user_items_map.count(make_pair(user_u,item_i))<=0)
+                scores.push_back(make_pair(ret[user_u][item_i],item_i));
         }
-        std::sort(scores.begin(),scores.end(),predicate());
+        std::sort(scores.begin(),scores.end());
+        std::reverse(scores.begin(),scores.end());
         vector<size_t> temp;
         for(size_t i=0; i < m ; i++)
         {
             //cout << "(" <<scores[i].first <<","<<scores[i].second<<")";
             temp.push_back(scores[i].second);
         }
+        //cout << endl;
         rec.push_back(temp);
     }
     return rec;
@@ -621,9 +625,12 @@ void BatchPoissonNewArray::recommend(std::ostream &output, size_t m) {
     {
         vector<pair<double,size_t>> scores;
         for(size_t item_i=0;item_i < _n_items ; item_i++){
-            scores.push_back(make_pair(ret[user_u][item_i],item_i));
+            // recommend only items that are not already rated by the user
+            if(user_items_map.count(make_pair(user_u,item_i))<=0)
+                scores.push_back(make_pair(ret[user_u][item_i],item_i));
         }
-        std::sort(scores.begin(),scores.end(),predicate());
+        std::sort(scores.begin(),scores.end());
+        std::reverse(scores.begin(),scores.end());
         vector<size_t> temp;
         for(size_t i=0; i < m ; i++)
         {

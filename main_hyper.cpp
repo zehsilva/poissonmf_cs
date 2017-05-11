@@ -1,11 +1,12 @@
 //
-// Created by eliezer on 12.12.16.
+// Created by eliezer on 13.03.17.
 //
+
 
 #include <iostream>
 #include <chrono>
-#include <boost/algorithm/string.hpp>
 //#include "BatchPoisson.h"
+#include <boost/algorithm/string.hpp>
 #include "BatchPoissonPure.h"
 #include "datasets.h"
 #include "math.h"
@@ -32,7 +33,7 @@ n_ratings= 278502
     }
     cout << endl;
 
-    if (argc < 6) { // We expect 3 arguments: the program name, the source path and the destination path
+    /*if (argc < 6) { // We expect 3 arguments: the program name, the source path and the destination path
         std::cout << "runing with default configuration" << std::endl;
         cout << "dataset: /home/eliezer/datasets/hetrec2011/lastfm/p85_train_test_9208/" << endl;
         cout << "k = 100, niter=100, tol=10^6" <<endl;
@@ -40,7 +41,8 @@ n_ratings= 278502
         experiment exp1("/home/eliezer/datasets/hetrec2011/lastfm/p85_train_test_9208/");
         exp1.run(100,100,6,350,1.0,1.0);
     }
-    else if (argc==5){
+    else*/
+    if (argc==5){
         size_t k=(size_t)std::stoi(argv[1]);
         size_t niter=(size_t)std::stoi(argv[2]);
         size_t dec=(size_t)std::stoi(argv[3]);
@@ -68,7 +70,7 @@ n_ratings= 278502
         else
         {
             cout << "invalid is_learn argument, " << learn <<", use 'const_w' for " <<
-                    "constant factor and 'learn_w' for factor learnt from the data " << endl;
+                 "constant factor and 'learn_w' for factor learnt from the data " << endl;
             return -1;
         }
         std::cout << "runing with default dataset" << std::endl;
@@ -78,7 +80,7 @@ n_ratings= 278502
         experiment exp1("/home/eliezer/datasets/hetrec2011/lastfm/p85_train_test_9208/");
         exp1.run(k,niter,dec,n_rec, w_content , w_social,is_learn);
     }
-    else if (argc>8){
+    else if (argc==9){
         size_t k=(size_t)std::stoi(argv[1]);
         size_t niter=(size_t)std::stoi(argv[2]);
         size_t dec=(size_t)std::stoi(argv[3]);
@@ -102,8 +104,36 @@ n_ratings= 278502
         cout << "k = " << k<<", niter=" << niter<<", tol=10^"<< dec <<endl;
 
         experiment exp1(argv[8]);
-        if(argc>9){
-            string loglevel = argv[9];
+        exp1.run(k,niter,dec,n_rec, w_content , w_social,is_learn);
+    }else if (argc>=11){
+        size_t k=(size_t)std::stoi(argv[1]);
+        size_t niter=(size_t)std::stoi(argv[2]);
+        size_t dec=(size_t)std::stoi(argv[3]);
+        size_t n_rec=(size_t)std::stoi(argv[4]);
+        string learn(argv[5]);
+        bool is_learn;
+        double w_content=std::stod(argv[6]);
+        double w_social=std::stod(argv[7]);
+        double hyper_a=std::stod(argv[9]);
+        double hyper_b=std::stod(argv[10]);
+
+        if(learn=="const_w")
+            is_learn= false;
+        else if(learn=="learn_w")
+            is_learn=true;
+        else
+        {
+            cout << "invalid is_learn argument, " << learn <<", use 'const_w' for " <<
+                 "constant factor and 'learn_w' for factor learnt from the data " << endl;
+            return -1;
+        }
+        std::cout << "runing with following configuration" << std::endl;
+        cout << "dataset: " << argv[8] << endl;
+        cout << "k = " << k<<", niter=" << niter<<", tol=10^"<< dec <<endl;
+
+        experiment exp1(argv[8]);
+        if(argc>11){
+            string loglevel = argv[11];
             vector<string> strs;
             boost::split(strs,loglevel ,boost::is_any_of("="));
             if(strs.size()>=2){
@@ -112,8 +142,9 @@ n_ratings= 278502
                 std::cout<<"loglevel="<<ll;
             }
         }
-        exp1.run(k,niter,dec,n_rec, w_content , w_social,is_learn);
+        exp1.run(k,niter,dec,n_rec, w_content , w_social,is_learn,Options::onevalue,hyper_a,hyper_b);
     }
+
 
     auto t2 = std::chrono::high_resolution_clock::now();
 

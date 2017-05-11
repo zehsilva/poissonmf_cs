@@ -2,6 +2,7 @@
 // Created by eliezer on 12.12.16.
 //
 
+#include <chrono>
 #include "BatchPoissonWeight.h"
 #include "BatchPoissonPure.h"
 
@@ -9,9 +10,13 @@ BatchPoissonWeight::BatchPoissonWeight(size_t n_ratings, size_t n_wd_entries, si
                                        size_t k_feat, size_t n_words, size_t n_max_neighbors,
                                        double lambda_a, double lambda_b, bool learn ,double a, double b,
                                        double c, double d, double e, double f, double g, double h, double k, double l)
-        : BatchPoissonNewArray(n_ratings, n_wd_entries, n_users, n_items, k_feat, n_words, n_max_neighbors, a, b, c, d,
-                               e, f, g, h, k, l), lambda_content(lambda_a,1,learn), lambda_social(lambda_b,1,learn),  sum_items(vector<double>(n_users)){
-
+ : BatchPoissonNewArray(n_ratings, n_wd_entries, n_users, n_items, k_feat, n_words, n_max_neighbors,
+                        a, b, c, d,e, f, g, h, k, l),
+   lambda_content(scalar_gamma_latent(lambda_a,1,learn)),lambda_social(scalar_gamma_latent(lambda_b,1,learn)),
+   sum_items(vector< double >(n_users))
+{
+    //lambda_content=scalar_gamma_latent(lambda_a,1,learn);
+    //lambda_social=scalar_gamma_latent(lambda_b,1,learn);
 }
 
 scalar_gamma_latent::scalar_gamma_latent(double a, double b, bool is_learn) : a(a), b(b), is_learn(is_learn) {
@@ -56,23 +61,31 @@ void scalar_gamma_latent::update_latent(double a_val, double b_val) {
     }
 }
 
+scalar_gamma_latent::scalar_gamma_latent() {}
+
 vector<vector<double>>  BatchPoissonWeight::estimate() {
     cout << endl<<"begin estimate son" <<endl;
     vector<vector<double>> ret(_n_users);
-    for(size_t user_u=0;user_u < _n_users; user_u++){
-        for(size_t item_i=0;item_i < _n_items ; item_i++){
-            double r_ui = 0;
-            for(size_t k=0;k<_k_feat;k++){
-                r_ui += eta.e_expected(user_u,k)*(epsilon.e_expected(item_i,k)+lambda_content.e_expected*theta.e_expected(item_i,k));
+    try
+    {
+        for(size_t user_u=0;user_u < _n_users; user_u++){
+            for(size_t item_i=0;item_i < _n_items ; item_i++){
+                double r_ui = 0;
+                for(size_t k=0;k<_k_feat;k++){
+                    r_ui += eta.e_expected(user_u,k)*(epsilon.e_expected(item_i,k)+lambda_content.e_expected*theta.e_expected(item_i,k));
+                }
+                for(size_t user_i : user_neighboors.at(user_u)){
+                    pairmap::iterator ifind = user_items_map.find(make_pair(user_i,item_i));
+                    if ( ifind != user_items_map.end() )
+                        r_ui += lambda_social.e_expected*(tau.e_expected(user_u,user_i)*ifind->second);
+                }
+                ret.at(user_u).push_back(r_ui);
             }
-            for(size_t user_i : user_neighboors[user_u]){
-                pairmap::iterator ifind = user_items_map.find(make_pair(user_i,item_i));
-                if ( ifind != user_items_map.end() )
-                    r_ui += lambda_social.e_expected*(tau.e_expected(user_u,user_i)*ifind->second);
-            }
-            ret[user_u].push_back(r_ui);
         }
+    }catch(...){
+        cout << "ERRRRRRRRRRRRRRRRRRRRRRRR" <<endl;
     }
+
     return ret;
 }
 
@@ -84,8 +97,9 @@ void BatchPoissonWeight::init_train(vector<tuple<size_t, size_t, size_t>> r_entr
     tau.b_latent=0;
     BatchPoissonNewArray::init_train(r_entries,w_entries,user_neighboors);
     for(size_t i=0;i<_n_users;i++){
-        sum_items[i]=tau.b_latent(i);
+        sum_items.at(i)=tau.b_latent(i);
     }
+    tau.b_latent+=tau.b;
 
 }
 
@@ -140,12 +154,12 @@ void BatchPoissonWeight::update_aux_latent() {
 
     }
     cout << "#END UPDATE_AUX" << endl;
-    cout << "#xi_M" << xi_M.row(11685) << endl;
-    cout << "#xi_N" << xi_N.row(11685) << endl;
+    //cout << "#xi_M" << xi_M.row(11685) << endl;
+    //cout << "#xi_N" << xi_N.row(11685) << endl;
     //cout << "#xi_S" << xi_S.row(11685) << endl;
     //cout << "#xi_N" << xi_N << endl;
     //cout << "#xi_S" << xi_S << endl;
-    cout << "#phi" << phi.row(0) << endl;
+    //cout << "#phi" << phi.row(0) << endl;
 
 }
 
@@ -155,7 +169,7 @@ void BatchPoissonWeight::update_latent() {
     epsilon.init_a_latent();
     eta.init_a_latent();
     tau.init_a_latent();
-    cout << "INIT#theta" << theta <<endl;
+    //cout << "INIT#theta" << theta <<endl;
     //cout << "INIT#eta" << eta <<endl;
     //cout << "INIT#tau" << tau <<endl;
     //cout << "INIT#epsilon" << epsilon <<endl;
@@ -225,7 +239,7 @@ void BatchPoissonWeight::update_latent() {
 
 
     for(size_t i=0;i<_n_users;i++){
-        tau.b_latent(i)=tau.b+lambda_social.e_expected*sum_items[i];
+        tau.b_latent(i)=tau.b+lambda_social.e_expected*sum_items.at(i);
     }
     tau.update_expected();
 
@@ -236,7 +250,7 @@ void BatchPoissonWeight::update_latent() {
         for(size_t u=0;u<_n_users;u++) {
 
             for(size_t i=0;i<_n_users;i++) {
-                temp_b_social+=tau.e_expected(u,i)*sum_items[i];
+                temp_b_social+=tau.e_expected(u,i)*sum_items.at(i);
             }
             for (size_t d = 0; d < _n_items; d++)
             {
@@ -271,6 +285,52 @@ double BatchPoissonWeight::tau_elbo_expected_linear_term() {
     }
     return -lambda_social.e_expected*total_sum;
 }
+
+void BatchPoissonWeight::train(size_t n_iter, double tol) {
+    try {
+        std::cout << "n_iter = " << n_iter <<"\n";
+        std::cout << "tol = " << tol <<"\n";
+        init_aux_latent();
+        double old_elbo=-std::numeric_limits<double>::infinity();
+        double elbo=0;
+
+        for(auto i=0;i<n_iter;i++){
+            auto t1 = std::chrono::high_resolution_clock::now();
+
+            std::cout << "############ITERATION "<<i<<" of "<<n_iter<<endl;
+            std::cout << "Begin update latent variables"<<endl;
+            update_latent();
+            std::cout << "Begin update auxiliary variables"<<endl;
+            update_aux_latent();
+            elbo = compute_elbo();
+
+
+
+            elbo_lst.push_back(elbo);
+            auto t2 = std::chrono::high_resolution_clock::now();
+
+            iter_time_lst.push_back(std::chrono::duration_cast<std::chrono::seconds>(t2-t1).count());
+            std::cout << "Old ELBO="<<old_elbo<<"  ---- new ELBO="<< elbo<< " improvement = " << abs((elbo-old_elbo)/old_elbo) << endl;
+
+            if(abs((elbo-old_elbo)/old_elbo) < tol)
+                break;
+            else
+                old_elbo=elbo;
+
+
+
+        }
+        std::cout << "List os ELBO values";
+        std::copy(elbo_lst.begin(),
+                  elbo_lst.end(),
+                  std::ostream_iterator<double>(std::cout, " , "));
+    } catch (const std::bad_alloc& e) {
+        std::cout << "Allocation failed: " << e.what() << '\n';
+        exit(-1);
+    }
+}
+
+
 double BatchPoissonWeight::compute_elbo() {
     double total_sum;
     total_sum = 0.0;

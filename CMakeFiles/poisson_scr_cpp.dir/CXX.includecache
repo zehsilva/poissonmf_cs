@@ -15,6 +15,8 @@ math.h
 -
 limits
 -
+algorithm
+-
 cmath
 -
 sstream
@@ -53,6 +55,8 @@ unordered_map
 -
 
 /home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.cpp
+chrono
+-
 BatchPoissonWeight.h
 /home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.h
 BatchPoissonPure.h
@@ -69,6 +73,8 @@ datasets.h
 /home/eliezer/Dropbox/repo-phd/poissoncpp/datasets.h
 BatchPoissonWeight.h
 /home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonWeight.h
+BatchPoissonPure.h
+/home/eliezer/Dropbox/repo-phd/poissoncpp/BatchPoissonPure.h
 string
 -
 vector
@@ -78,6 +84,8 @@ iostream
 fstream
 -
 sstream
+-
+chrono
 -
 
 /home/eliezer/Dropbox/repo-phd/poissoncpp/datasets.h

@@ -1,12 +1,16 @@
 <component name="ProjectDictionaryState">
   <dictionary name="eliezer">
     <words>
+      <w>chrono</w>
+      <w>dataload</w>
       <w>eigen</w>
       <w>elbo</w>
       <w>elog</w>
       <w>expjk</w>
       <w>ifind</w>
       <w>irow</w>
+      <w>loglevel</w>
+      <w>memalloc</w>
       <w>myfile</w>
       <w>ncol</w>
       <w>neighb</w>

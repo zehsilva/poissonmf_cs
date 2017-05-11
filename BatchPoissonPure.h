@@ -47,6 +47,12 @@ public:
     T* data_end;
     size_t incr;
 
+
+    Array(){
+        data_end=data=NULL;
+        ncol=nrow=0;
+    }
+
     Array(T* data, size_t nrow, size_t ncol,  T value) : data(data), ncol(ncol), nrow(nrow) {
         incr=1;
         data_end=data+ncol*nrow;
@@ -66,6 +72,11 @@ public:
         return nrow;
     }
 
+    T get(size_t row, size_t column) const
+    {
+        return (row * ncol + data)[column];
+    }
+
     T& operator ()(size_t row, size_t column)
     {
         return (row * ncol + data)[column];
@@ -74,10 +85,7 @@ public:
     {
         return data[column];
     }
-    T& operator [](size_t column)
-    {
-        return data[column];
-    }
+
     Array<T>& operator=(const T rhs) {
 
         for(T* data_start=data;data_start!=data_end;data_start++){
@@ -185,13 +193,23 @@ public:
         }
     }
     friend std::ostream &operator<<(std::ostream &os, const Array<T> &arr1) {
-        os << "(nrow=" << arr1.nrow << ", ncol=" << arr1.ncol <<" ), [";
-        for(size_t i=0;i<arr1.ncol;i++){
-            os<<arr1.data[i];
-            if((i+1)<arr1.ncol)
-                os<<",";
+        os << "{\"nrow\":" << arr1.nrow
+           << ", \"ncol\":" << arr1.ncol
+           <<", \"data\":[" ;
+
+        for (size_t i = 0; i < arr1.nrow; ++i) {
+            os << "[";
+            for (size_t j = 0; j < arr1.ncol; ++j) {
+                os << arr1.get(i,j);
+                if ((j + 1) < arr1.ncol)
+                    os << ",";
+            }
+            os << "]";
+            if((i+1)<arr1.nrow)
+                os << ",";
+            os << endl;
         }
-        os<<"]"<<endl;
+        os << "] "<<endl<<"}";
         return os;
     }
 
@@ -275,6 +293,10 @@ public:
 
     gamma_latent( ArrayManager<double>* arrman, size_t nrows, size_t ncols, double a, double b);
 
+    gamma_latent(){
+        ;
+    }
+
     void update_expected();
 
     double elbo_term();
@@ -289,12 +311,15 @@ public:
     void init_a_latent();
 
     friend std::ostream &operator<<(std::ostream &os, const gamma_latent &var){
-        os << "{a = " << var.a << ", b=" << var.b << "nvars=" << var.nvars << "kdim= " << var.kdim<<endl;
-        os << ",a_latent = [" << var.a_latent<<"]";
-        os << ",b_latent = [" << var.b_latent<<"]";
-        os << ",exp = [" << var.e_expected<<"]";
-        os << ",logexp = [" << var.elog_expected<<"]";
-        os << endl;
+        os << "{\"a\" : " << var.a
+           <<", \"b\":" << var.b
+           << ", \"nvars\":" << var.nvars
+           << ", \"kdim\": " << var.kdim<<endl;
+        os << ",\"a_latent\":" << var.a_latent<<endl;
+        os << ",\"b_latent\":" << var.b_latent<<endl;
+        os << ",\"exp\":" << var.e_expected<<endl;
+        os << ",\"logexp\":" << var.elog_expected<<endl;
+        os << "}"<<endl;
         return os;
     }
 };
@@ -318,6 +343,7 @@ public:
     Arrayf  xi_S;
 
     list<double > elbo_lst;
+    list<long > iter_time_lst;
     vector<tuple<size_t,size_t,size_t>> r_entries; // tuple<user,item,feedback>
     vector<tuple<size_t,size_t,size_t>> w_entries; // tuple<word,item,word-count-in-item>
     vector< list <  pair<size_t, size_t > > > user_items_neighboors; // list<<pair<user_neighbor_i,index_in_r_entries>>
@@ -337,12 +363,17 @@ public:
     size_t _n_max_neighbors;
     double a=0.1; double b=0.1; double c=0.1; double d=0.1; double e=0.1; double f=0.1; double g=0.1;
     double h=0.1; double k=0.1; double l=0.1;
+    size_t mem_use=0;
 
 
 
      BatchPoissonNewArray(size_t n_ratings,size_t n_wd_entries,size_t n_users, size_t n_items, size_t k_feat, size_t n_words,size_t n_max_neighbors,
                  double a=0.1, double b=0.1, double c=0.1, double d=0.1, double e=0.1, double f=0.1, double g=0.1,
                  double h=0.1, double k=0.1, double l=0.1);
+
+    BatchPoissonNewArray(){
+        ;
+    }
 
 
 

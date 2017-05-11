@@ -19,6 +19,7 @@ public:
     bool is_learn=false;
     scalar_gamma_latent(double a, double b, bool is_learn=false);
     scalar_gamma_latent(double val);
+    scalar_gamma_latent();
 
     void update_latent(double a_val, double b_val);
 
@@ -39,6 +40,19 @@ public:
         if(!is_learn)
             return 0;
         return gamma_term(a,b,a_latent,b_latent,e_expected,elog_expected);
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const scalar_gamma_latent &var){
+        os << "{\"a\" : " << var.a
+           << ",\"b\":" << var.b ;
+        os << ",\"a_latent\" : "<< var.a_latent;
+        os << ",\"b_latent\" :  "<< var.b_latent;
+        os << ",\"exp\" :  "<< var.e_expected;
+        os << ",\"logexp\" : " << var.elog_expected;
+        os << ",\"is_learn\" : " << "\""+to_string(var.is_learn)+"\""
+           <<"}";
+        os << endl;
+        return os;
     }
 
 
@@ -77,8 +91,10 @@ public:
     void update_aux_latent();
 
     virtual ~BatchPoissonWeight(){
-        arrman->~ArrayManager();
+
     }
+
+    void train(size_t n_iter, double tol);
 };
 
 #endif //POISSON_SCR_CPP_BATCHPOISSONWEIGHT_H

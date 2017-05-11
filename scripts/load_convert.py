@@ -34,6 +34,16 @@ class LoadModify(object):
 
         self.train_percentage = 0.90
         self.min_train_items = 5
+        
+        self.file_user_item = "user_artists.dat"
+        self.file_item_tags = "user_taggedartists.dat"
+        self.file_user_user = "user_friends.dat"
+        self.file_tags = "tags.dat"
+        
+        self.newfile_user_item = None
+        self.newfile_item_tags = None
+        self.newfile_user_user = None
+        self.newfile_tags = None
     def load_save(self,train_percentage=0.8):
         if self.save==None:
             self.save="p"+str(int(train_percentage*100))+"_train_test_"+str(np.random.randint(10000))+'/'

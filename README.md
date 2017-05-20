@@ -1,5 +1,6 @@
 # poissonmf_cs
 Poisson Factorization with joint content and social trust factors (paper under review)
+Eliezer de Souza da Silva
 
 This code is provided as it is.
 
@@ -33,6 +34,6 @@ To run the main method you should use poisson_weighted_learn in the following wa
  
 
 Examples:
- - ./poisson_weighted_learn 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886 loglevel=0
- - ./poisson_weighted_learn_hyper 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886 0.3 0.3 loglevel=0
+ - ```./poisson_weighted_learn 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886 loglevel=0```
+ - ```./poisson_weighted_learn_hyper 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886 0.3 0.3 loglevel=0```
  - ```for k in {5,10,15,25,50}; do for lambda_w in 200; do for lambda_s in 200; do for learn in 'learn_w' ; do for dataset in /home/eliezer/Dropbox/repo-phd/poissoncpp/datasets/hetrec2011/lastfm/p85_train_test_*/; do ./poisson_weighted_learn $k 40 5 1000 $learn $lambda_w $lambda_s $dataset loglevel=0 ; done; done; done; done; done &> long_experiment_varK_learnw_p85  & ```

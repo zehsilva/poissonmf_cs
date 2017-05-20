@@ -10,7 +10,7 @@ To compile to code just run make and it generates three binary files:
 
 
 To run the main method you should use poisson_weighted_learn in the following way
- - < ./poisson_weighted_learn k_latent n_iter tol_prec n_recommendations {const_w,learn_w} w_content w_social dataset_path loglevel={0,1,2,3,4,5} >
+- > ./poisson_weighted_learn k_latent n_iter tol_prec n_recommendations {const_w,learn_w} w_content w_social dataset_path loglevel={0,1,2,3,4,5} >
 	 - k_latent is the dimensionality of the latent space 
 	 - n_iter is the maximum number of iterations
 	 - tol_prec is integer number for the tolerance precision... meaning that if update_change < 10^tol_prec, we consider that the algorithm converged
@@ -25,6 +25,14 @@ To run the main method you should use poisson_weighted_learn in the following wa
 		- user_artist_rating.train: each line consist of  (user_u, artist_a, rating) separated by a tab.
 		- user_artist_rating.test: each line consist of  (user_u, artist_a, rating) separated by a tab.
 	 - loglevel={0,1,2,3,4,5} is how many details should be printed in the standard output and in a log file (with the same name as the recommendation file, but extensions ".json", and it is a valid json file with all the model internal representations). In general is better to set to 0 to avoid too big logs.
+- > ./poisson_weighted_learn_hyper k_latent n_iter tol_prec n_recommendations {const_w,learn_w} w_content w_social dataset_path a_gamma_prior b_gamma_prior loglevel={0,1,2,3,4,5} 
+	- same parameters as for poisson_weighted_learn
+	- extra parameters:
+		- a_gamma_prior: shape \alpha>0 parameter of the gamma prior of the latent variables of the model (the same for all variables). It is set up to 0.1 as default
+		- b_gamma_prior: rate \beta>0 parameter of the gamma prior of the latent variables of the model (the same for all variables). It is set up to 0.1 as default
+ 
 
 Examples:
- - ./poisson_weighted_learn 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886
+ - ./poisson_weighted_learn 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886 loglevel=0
+ - ./poisson_weighted_learn_hyper 15 40 5 1000 learn_w 100 100 datasets/hetrec2011/lastfm/p85_train_test_3886 0.3 0.3 loglevel=0
+ - ''' for k in {5,10,15,25,50}; do for lambda_w in 200; do for lambda_s in 200; do for learn in 'learn_w' ; do for dataset in /home/eliezer/Dropbox/repo-phd/poissoncpp/datasets/hetrec2011/lastfm/p85_train_test_*/; do ./poisson_weighted_learn $k 40 5 1000 $learn $lambda_w $lambda_s $dataset loglevel=0 ; done; done; done; done; done &> long_experiment_varK_learnw_p85  & '''
